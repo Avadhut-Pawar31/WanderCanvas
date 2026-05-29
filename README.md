@@ -1,4 +1,4 @@
-# TravelCanvas AI 🌍✨
+# WanderCanvas AI 🌍✨
 
 An AI-powered travel planning platform that generates beautiful travel mood boards, itineraries, packing lists, and destination insights.
 
