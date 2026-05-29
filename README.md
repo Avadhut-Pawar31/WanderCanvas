@@ -38,7 +38,7 @@ An AI-powered travel planning platform that generates beautiful travel mood boar
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/travelcanvas-ai.git
+git clone https://github.com/Avadhut-Pawar31/WanderCanvas
 cd travelcanvas-ai
 ```
 
