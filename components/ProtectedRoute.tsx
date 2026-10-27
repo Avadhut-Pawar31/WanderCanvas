@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Loader2 } from 'lucide-react';
+import { Compass } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,17 +20,18 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // Redirect to login if not authenticated
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router, pathname]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading...</p>
+      <div className="min-h-screen bg-[#F7F5EF] flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-[#244536]/10 text-[#244536] flex items-center justify-center mx-auto animate-pulse">
+            <Compass className="w-6 h-6 animate-spin" />
+          </div>
+          <p className="font-serif text-sm text-[#292D2A]/70 italic">Loading your journeys...</p>
         </div>
       </div>
     );

@@ -13,7 +13,6 @@ export function ColorPalette({ colors }: ColorPaletteProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const copyToClipboard = async (hex: string, index: number) => {
-    // Check if clipboard API is available (client-side only)
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(hex);
@@ -26,49 +25,49 @@ export function ColorPalette({ colors }: ColorPaletteProps) {
   };
 
   return (
-    <section className="py-12">
+    <section className="py-6">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="mb-8"
+        transition={{ duration: 0.5 }}
+        className="mb-6"
       >
-        <h2 className="text-4xl font-bold text-white mb-2">Color Palette</h2>
-        <p className="text-slate-400">Inspired by your destination's aesthetics</p>
+        <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[#244536] mb-1">
+          Harmonic Color Palette
+        </h2>
+        <p className="text-sm text-[#292D2A]/70 font-sans">
+          Natural pigments and architectural tones extracted from your destination corridor.
+        </p>
       </motion.div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {colors.map((color, index) => (
           <motion.div
             key={index}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1, duration: 0.5 }}
-            className="group"
+            transition={{ delay: index * 0.08, duration: 0.4 }}
+            className="group bg-white p-3 rounded-2xl border border-[#244536]/10 shadow-xs"
           >
             <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-lg"
+              whileHover={{ scale: 1.03 }}
+              className="relative aspect-square rounded-xl overflow-hidden cursor-pointer border border-black/10 shadow-2xs"
               style={{ backgroundColor: color.hex }}
               onClick={() => copyToClipboard(color.hex, index)}
             >
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0 }}
-                  whileHover={{ opacity: 1, scale: 1 }}
-                  className="bg-white/90 backdrop-blur-sm rounded-full p-3"
-                >
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-200 flex items-center justify-center">
+                <div className="bg-white/95 backdrop-blur-sm rounded-full p-2.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
                   {copiedIndex === index ? (
-                    <Check className="w-5 h-5 text-green-600" />
+                    <Check className="w-4 h-4 text-[#244536]" />
                   ) : (
-                    <Copy className="w-5 h-5 text-slate-800" />
+                    <Copy className="w-4 h-4 text-[#292D2A]" />
                   )}
-                </motion.div>
+                </div>
               </div>
             </motion.div>
-            <div className="mt-3 text-center">
-              <p className="text-sm font-medium text-white">{color.name}</p>
-              <p className="text-xs text-slate-400 font-mono">{color.hex}</p>
+            <div className="mt-3 text-center space-y-0.5">
+              <p className="text-xs font-serif font-bold text-[#292D2A] truncate">{color.name}</p>
+              <p className="text-[11px] text-[#292D2A]/60 font-mono">{color.hex}</p>
             </div>
           </motion.div>
         ))}

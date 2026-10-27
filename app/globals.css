@@ -1,41 +1,65 @@
 @import "tailwindcss";
 
+@theme {
+  --color-warm-ivory: #F7F5EF;
+  --color-forest: #244536;
+  --color-forest-dark: #1B3529;
+  --color-forest-light: #2F5846;
+  --color-sage: #A8B5A0;
+  --color-sage-light: #E7ECE5;
+  --color-sage-subtle: #F0F3EF;
+  --color-terracotta: #C78363;
+  --color-terracotta-dark: #B37050;
+  --color-terracotta-soft: #F8EFE9;
+  --color-charcoal: #292D2A;
+  --color-charcoal-muted: #5F6761;
+  --color-charcoal-soft: #858F87;
+  --font-serif: var(--font-serif), ui-serif, Georgia, Cambria, serif;
+  --font-sans: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 44 26% 95%;
+    --foreground: 135 4% 17%;
   }
 
   body {
-    background-color: rgb(2 6 23);
-    color: rgb(248 250 252);
+    background-color: #F7F5EF;
+    color: #292D2A;
     font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-/* Custom scrollbar */
+/* Custom editorial scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background-color: rgb(15 23 42);
+  background-color: #F7F5EF;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgb(51 65 85);
+  background-color: #A8B5A0;
   border-radius: 9999px;
+  border: 2px solid #F7F5EF;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(71 85 105);
+  background-color: #244536;
 }
 
-/* Gradient mesh background */
-.gradient-mesh {
-  background: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%);
+/* Subtle editorial paper texture / tint helper */
+.editorial-border {
+  border-color: rgba(36, 69, 54, 0.12);
 }
+
+.editorial-card {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(36, 69, 54, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(41, 45, 42, 0.04);
+}
+

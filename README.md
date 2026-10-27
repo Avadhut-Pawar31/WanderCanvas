@@ -1,184 +1,236 @@
-# WanderCanvas AI 🌍✨
+# WanderCanvas — Collaborative, Hygiene-Aware AI Travel Planning Platform 🌍✨
 
-An AI-powered travel planning platform that generates beautiful travel mood boards, itineraries, packing lists, and destination insights.
+> *"Less planning. More wondering."*
 
-![TravelCanvas AI](https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&q=80)
+**WanderCanvas** is a production-oriented, collaborative travel-planning platform that helps travelers plan journeys, discover suitable routes, evaluate verified hygiene evidence along highway and scenic corridors, find clean washrooms, and collaborate with friends in real time.
 
-## Features
+---
 
-- 🎨 **AI-Generated Mood Boards** - Pinterest-style visual inspiration
-- 🎨 **Color Palette Generator** - Destination-inspired color schemes
-- 📍 **Smart Attractions** - Curated places to visit with details
-- 🍜 **Local Food Guide** - Authentic dishes and cultural significance
-- 🎒 **Smart Packing Assistant** - Dynamic checklist based on your trip
-- 📅 **Personalized Itinerary** - Day-by-day travel timeline
-- 💡 **Travel Insights** - Local etiquette, safety tips, and phrases
-- 💾 **Save & Export** - Store trips and export as PDF
-- 🌙 **Dark Mode** - Beautiful dark theme with smooth animations
+## 🏛️ Core Product Architecture & Pillars
 
-## Tech Stack
+Unlike generic itinerary generators, WanderCanvas provides an authentic travel platform built around two core pillars:
+1. **Hygiene Intelligence**: Objective, evidence-backed inspection records and facility checklists (water, soap, odor, accessibility, flush functionality) rather than subjective star ratings.
+2. **Collaborative Planning Workspaces**: Real-time shared itineraries, proposal voting with consensus auto-promotion, trip-scoped group chat, and route corridor discovery.
 
-- **Next.js 15** - React framework with App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **Framer Motion** - Smooth animations
-- **Zustand** - State management
-- **React Hook Form** - Form handling
-- **Zod** - Schema validation
-- **Lucide React** - Beautiful icons
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                          WanderCanvas Platform                         │
+├───────────────────┬───────────────────┬────────────────────────────────┤
+│  Route & Geospatial│  Hygiene & Audit  │   Collaboration & Workspace    │
+│  • Haversine &    │  • 0-100 Checklist│   • Multi-Tab Real-time Sync   │
+│    Perpendicular  │    Scoring Engine │   • Invite Codes (e.g. AMALFI) │
+│    Detour Math    │  • 90-Day Freshness│   • Owner/Editor/Viewer Roles  │
+│  • Dual Renderer: │    Expiry Rule    │   • Proposal Voting (+1 / -1)  │
+│    Google Maps +  │  • Evidence Status│   • Consensus Auto-Promotion   │
+│    Geospatial SVG │  • Community Logs │   • Trip-Scoped Live Chat      │
+├───────────────────┴───────────────────┴────────────────────────────────┤
+│                    Grounded AI Travel Assistant                        │
+│  • Grounded in actual corridor geometry & verified inspection logs     │
+│  • Evaluates detour minutes, water/soap supplies, and accessibility    │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
-## Getting Started
+---
+
+## 🚀 Key Features
+
+### 1. Interactive Route & Detour Engine (`services/mapRouteService.ts`)
+- **Corridor Discovery**: Computes driving, transit, bicycling, or walking route paths between origins and destinations.
+- **Accurate Detour Math**: Computes perpendicular distance and realistic driving detour (+km, +mins) from route geometry to candidate places.
+- **Dual-Engine Map Rendering (`components/map/InteractiveRouteMap.tsx`)**:
+  - Full Google Maps JavaScript API integration when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is provided.
+  - Built-in vector geospatial SVG/Canvas renderer with interactive markers and detour polylines when running offline or without credentials.
+
+### 2. Hygiene Intelligence & Place Audits (`services/hygieneService.ts`)
+- **Transparent Scoring Formula (0–100)**:
+  - Visible Cleanliness (25%)
+  - Running Water Supply (20%)
+  - Functional Flush / Toilet Condition (20%)
+  - Soap Availability (15%)
+  - Odor Neutrality (10%)
+  - Waste Disposal Maintenance (10%)
+- **Strict Verification Statuses**:
+  - `officially_inspected` — Audited on-site by municipal or health boards.
+  - `independently_inspected` — Verified by certified sanitation auditors.
+  - `community_reported` — Recent reports from verified travelers.
+  - `not_yet_verified` — Unknown locations (never assigned fabricated scores).
+  - `verification_expired` — Automatically flags any inspection older than 90 days.
+- **Detailed Audit Modal (`components/hygiene/HygieneReportModal.tsx`)**: Inspect facilities, touchless amenities, step-free access, baby changing stations, and submit community reports.
+
+### 3. Collaborative Trip Workspace (`services/collaborationService.ts`, `app/workspace/[id]/page.tsx`)
+- **Trip Membership & Roles**: Secure invite codes (e.g. `AMALFI-26`), with roles (`owner`, `editor`, `viewer`).
+- **Synchronized Shared Itinerary**: Real-time cross-tab updates using the HTML5 `BroadcastChannel` API and persistent local storage.
+- **Democratic Stop Voting**: Members can propose stops with rationales; receiving consensus (+2 net upvotes) auto-promotes the candidate place to confirmed route waypoints.
+- **Persistent Trip Chat (`services/chatService.ts`, `components/chat/TripChatPanel.tsx`)**: Trip-scoped real-time messaging with attached place cards and automated itinerary change alerts.
+
+### 4. Grounded AI Travel Assistant (`services/aiAssistantService.ts`)
+- Uses validated candidate places and route geometry.
+- Enforces strict hygiene filters (e.g., verified-only, clean washrooms, dining, lodging).
+- Transparently reports detour minutes and inspection certificate IDs.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 16 (App Router)](https://nextjs.org/) with Turbopack
+- **Language**: [TypeScript 5](https://www.typescriptlang.org/) (Strict typing, zero lint errors)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with an editorial palette (Warm Ivory `#F7F5EF`, Forest Green `#244536`, Terracotta `#C78363`)
+- **Typography**: Playfair Display (Serif) + Inter (Sans)
+- **Animation**: [Framer Motion 12](https://www.framer.com/motion/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Forms & Validation**: React Hook Form + Zod
+- **Icons**: Lucide React
+- **Notifications**: React Hot Toast
+
+---
+
+## 📦 Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+ (tested on Node v20 & v25)
 - npm or yarn
 
-### Installation
+### 1. Installation
 
-1. Clone the repository:
 ```bash
-git clone https://github.com/Avadhut-Pawar31/WanderCanvas
-cd travelcanvas-ai
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/Avadhut-Pawar31/WanderCanvas.git
+cd WanderCanvas
 npm install
 ```
 
-3. Run the development server:
+### 2. Environment Configuration
+
+Copy `.env.example` to `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+Configure your API keys in `.env.local`:
+
+```env
+# Optional: Google Maps Platform API key (for Google satellite/vector map tiles)
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
+
+# Optional: Google Gemini API key (for AI travel assistant completions)
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+NEXT_PUBLIC_GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+```
+
+> **Note**: WanderCanvas includes full built-in mock/corridor data and SVG geospatial projection, so you can explore all features (interactive maps, hygiene inspections, voting, chat, AI suggestions) **without requiring external API keys**.
+
+### 3. Run Development Server
+
 ```bash
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-## Project Structure
-
-```
-travelcanvas-ai/
-├── app/                    # Next.js app directory
-│   ├── dashboard/         # Dashboard page
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Landing page
-│   └── globals.css        # Global styles
-├── components/            # React components
-│   ├── ui/               # UI primitives
-│   ├── AnimatedGlobe.tsx
-│   ├── Attractions.tsx
-│   ├── ColorPalette.tsx
-│   ├── DestinationOverview.tsx
-│   ├── FloatingCards.tsx
-│   ├── FoodRecommendations.tsx
-│   ├── Itinerary.tsx
-│   ├── LoadingExperience.tsx
-│   ├── MoodBoard.tsx
-│   ├── PackingList.tsx
-│   ├── ThemeToggle.tsx
-│   ├── TravelForm.tsx
-│   └── TravelInsights.tsx
-├── lib/                   # Utilities
-│   └── utils.ts
-├── services/             # Business logic
-│   └── aiService.ts
-├── store/                # State management
-│   └── useTravelStore.ts
-├── types/                # TypeScript types
-│   └── index.ts
-└── public/               # Static assets
-```
-
-## Features in Detail
-
-### Landing Page
-- Premium hero section with animated globe
-- Floating travel cards with parallax effect
-- Gradient mesh background
-- Smooth scroll animations
-
-### Travel Form
-- Glassmorphism design
-- Real-time validation
-- 7 travel style options
-- Budget and duration inputs
-
-### Dashboard
-- Destination hero with key stats
-- Masonry mood board layout
-- Interactive color palette with copy
-- Animated attraction cards
-- Food recommendations with cultural notes
-- Smart packing checklist with progress
-- Visual timeline itinerary
-- Travel insights and tips
-
-## Customization
-
-### Adding New Destinations
-
-Edit `services/aiService.ts` and add your destination data:
-
-```typescript
-const destinations: Record<string, DestinationData> = {
-  'your-city': {
-    name: 'Your City',
-    description: 'Description...',
-    heroImage: 'image-url',
-    bestSeason: 'Season',
-    weather: 'Weather info',
-    dailyBudget: 150,
-  },
-};
-```
-
-### Styling
-
-The app uses Tailwind CSS with a custom design system:
-- Colors: Deep Navy, Purple, Indigo, Cyan
-- Effects: Glassmorphism, soft shadows, large border radius
-- Typography: Inter font family
-
-## Deployment
-
-### Deploy to Vercel
-
-1. Push your code to GitHub
-2. Import project in Vercel
-3. Deploy with one click
-
-```bash
-npm run build
-```
-
-## Performance
-
-- Optimized images with Next.js Image
-- Code splitting and lazy loading
-- Minimal bundle size
-- Fast page transitions
-
-## Browser Support
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-MIT License - feel free to use this project for your portfolio or hackathons!
-
-## Acknowledgments
-
-- Images from Unsplash
-- Icons from Lucide
-- Inspiration from Airbnb, Stripe, and Linear
+Open [http://localhost:3000](http://localhost:3000) (or the active port displayed in terminal) to view the application.
 
 ---
 
-Built with ❤️ for travelers worldwide
+## 🧪 Testing & Verification
+
+Run the comprehensive automated platform verification suite:
+
+```bash
+npm test
+```
+
+This verifies:
+1. **Geospatial & Route Detour Calculations**: Haversine distance, route corridor geometry, and detour penalties.
+2. **Hygiene Checklist & Scoring Formula**: 0-100 weighted checklist calculation and deficient penalties.
+3. **Verification Freshness & 90-Day Expiry**: Enforces the 90-day inspection expiration rule and ensures unverified places have no fabricated scores.
+4. **Community Reporting**: Submission, validation, and indexing of traveler reports.
+5. **Collaborative Workspace & Voting**: Creation, invite code joining, proposal voting, and consensus auto-promotion to waypoints.
+6. **AI Assistant Route Grounding**: Verifies assistant recommendations match corridor route data and verified evidence.
+
+To run linting and production build checks:
+
+```bash
+npm run lint    # Zero ESLint errors
+npm run build   # Production Turbopack compilation & static generation
+```
+
+---
+
+## 🗺️ Google Cloud Platform Configuration
+
+When connecting your production Google Cloud project:
+
+1. **Enable Google Cloud APIs**:
+   - **Maps JavaScript API**: Map rendering and controls.
+   - **Places API (New)**: Place search, autocomplete, and details.
+   - **Routes API**: Polylines, travel distances, and duration calculations.
+   - **Geocoding API**: Address to lat/lng lookup.
+
+2. **API Key Security & Restrictions**:
+   - Go to **Google Cloud Console > APIs & Services > Credentials**.
+   - Create a Browser API Key.
+   - Set **Application restrictions** to **HTTP referrers (web sites)**:
+     - `http://localhost:3000/*` (local dev)
+     - `https://your-domain.com/*` (production)
+   - Set **API restrictions** to:
+     - Maps JavaScript API
+     - Places API
+     - Routes API
+
+---
+
+## 📂 Project Directory Structure
+
+```
+WanderCanvas/
+├── app/
+│   ├── layout.tsx                     # Playfair Display + Inter font setup
+│   ├── globals.css                    # Tailwind v4 theme tokens
+│   ├── page.tsx                       # Editorial landing page
+│   ├── my-trips/                      # Collaborative trips listing & join modal
+│   ├── workspace/[id]/                # Master collaborative trip workspace
+│   ├── home/                          # Trip intake form & generator
+│   ├── explore/                       # Curated destinations
+│   ├── login/ & signup/               # Authentication pages
+│   └── mood-boards/                   # Visual travel boards
+├── components/
+│   ├── map/
+│   │   └── InteractiveRouteMap.tsx    # Dual Google Maps / Vector SVG corridor map
+│   ├── hygiene/
+│   │   └── HygieneReportModal.tsx     # Inspection audit logs & community reporter
+│   ├── collaboration/
+│   │   └── SharedItineraryPanel.tsx   # Sequential stops & proposal voting
+│   ├── chat/
+│   │   └── TripChatPanel.tsx          # Real-time trip chat & place cards
+│   ├── ai/
+│   │   └── AITravelAssistantPanel.tsx # Grounded route & hygiene recommendations
+│   ├── workspace/
+│   │   └── TripWorkspaceView.tsx      # Master unified workspace tabs
+│   └── ui/                            # Buttons, inputs, dialogs
+├── services/
+│   ├── mapRouteService.ts             # Haversine, detour, and corridor math
+│   ├── hygieneService.ts              # Checklist scoring, freshness & seed data
+│   ├── collaborationService.ts        # Trips, invite codes, roles & voting
+│   ├── chatService.ts                 # Real-time messaging
+│   └── aiAssistantService.ts          # Grounded AI planning engine
+├── scripts/
+│   └── verify-platform.ts             # Automated platform test suite
+├── types/
+│   └── index.ts                       # Domain TypeScript interfaces
+├── .env.example                       # Environment configuration template
+└── package.json                       # Scripts and dependencies
+```
+
+---
+
+## 🛡️ Security & Privacy Principles
+
+- **No Fabricated Evidence**: Places without genuine municipal or auditor reports are explicitly labeled `Evidence Pending` or `not_yet_verified`.
+- **Credential Protection**: Client API keys are restricted by HTTP referrer; server keys never touch browser bundles.
+- **Client Sanitization**: All user notes, suggestions, and chat inputs are validated before inclusion in storage or messages.
+- **Role Enforcement**: Viewers cannot propose stops or modify route parameters.
+
+---
+
+## 📄 License
+
+MIT &copy; WanderCanvas

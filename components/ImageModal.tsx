@@ -37,34 +37,34 @@ export function ImageModal({ isOpen, onClose, imageUrl, alt, category }: ImageMo
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
         >
           <motion.button
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 transition-colors"
+            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 hover:bg-white shadow-lg transition-colors z-10"
           >
-            <X className="w-6 h-6 text-white" />
+            <X className="w-5 h-5 text-[#244536]" />
           </motion.button>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+            transition={{ duration: 0.25 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative max-w-5xl w-full"
+            className="relative max-w-4xl w-full"
           >
             <img
               src={imageUrl}
               alt={alt}
-              className="w-full h-auto max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+              className="w-full h-auto max-h-[85vh] object-contain rounded-3xl shadow-2xl border border-white/10"
             />
-            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent rounded-b-2xl">
-              <p className="text-white text-xl font-semibold capitalize">{category}</p>
-              <p className="text-slate-300 text-sm mt-1">{alt}</p>
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/85 via-black/40 to-transparent rounded-b-3xl">
+              <p className="text-white font-serif text-2xl font-bold capitalize">{category}</p>
+              <p className="text-white/80 text-xs mt-1 font-sans">{alt}</p>
             </div>
           </motion.div>
         </motion.div>

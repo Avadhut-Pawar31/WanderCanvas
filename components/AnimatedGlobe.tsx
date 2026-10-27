@@ -16,11 +16,11 @@ export function AnimatedGlobe() {
           ease: "linear",
         }}
       >
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 opacity-20 blur-3xl" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#244536]/15 via-[#A8B5A0]/15 to-[#C78363]/15 blur-2xl" />
         <motion.div
-          className="absolute inset-0 rounded-full border-2 border-indigo-500/30"
+          className="absolute inset-0 rounded-full border border-[#244536]/20"
           animate={{
-            scale: [1, 1.1, 1],
+            scale: [1, 1.08, 1],
             opacity: [0.3, 0.6, 0.3],
           }}
           transition={{
@@ -30,9 +30,9 @@ export function AnimatedGlobe() {
           }}
         />
         <motion.div
-          className="absolute inset-4 rounded-full border-2 border-purple-500/30"
+          className="absolute inset-4 rounded-full border border-[#C78363]/25"
           animate={{
-            scale: [1.1, 1, 1.1],
+            scale: [1.08, 1, 1.08],
             opacity: [0.6, 0.3, 0.6],
           }}
           transition={{
@@ -43,9 +43,9 @@ export function AnimatedGlobe() {
           }}
         />
         <motion.div
-          className="absolute inset-8 rounded-full border-2 border-pink-500/30"
+          className="absolute inset-8 rounded-full border border-[#A8B5A0]/30"
           animate={{
-            scale: [1, 1.1, 1],
+            scale: [1, 1.08, 1],
             opacity: [0.3, 0.6, 0.3],
           }}
           transition={{

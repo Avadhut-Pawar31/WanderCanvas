@@ -59,27 +59,30 @@ export function MoodBoard({ images, categoryDetails }: MoodBoardProps) {
   const savedActivityIds = savedActivities.map(a => a.id);
 
   return (
-    <section className="py-12 relative">
+    <section className="py-6 relative">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.5 }}
         className="mb-8"
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
           <div>
-            <h2 className="text-4xl font-bold text-white mb-2">Travel Mood Board</h2>
-            <p className="text-slate-400">Click any category to explore and plan your activities</p>
+            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[#244536] mb-1">
+              Visual Travel Mood Board
+            </h2>
+            <p className="text-sm text-[#292D2A]/70 font-sans">
+              Click any category card to inspect local highlights, costs, and plan activities.
+            </p>
           </div>
           <Button
             onClick={() => setIsSidebarOpen(true)}
-            className="gap-2"
-            size="lg"
+            className="bg-[#244536] text-white hover:bg-[#1B3529] rounded-xl px-4 py-2 gap-2 shadow-xs self-start sm:self-auto"
           >
-            <ListChecks className="w-5 h-5" />
-            My Itinerary
+            <ListChecks className="w-4 h-4 text-[#C78363]" />
+            <span>Itinerary Activities</span>
             {savedActivities.length > 0 && (
-              <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+              <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs font-mono font-bold">
                 {savedActivities.length}
               </span>
             )}
@@ -88,18 +91,20 @@ export function MoodBoard({ images, categoryDetails }: MoodBoardProps) {
 
         {savedActivities.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-xl border border-indigo-500/30 mb-6"
+            className="p-4 bg-white rounded-2xl border border-[#244536]/15 shadow-xs mb-6"
           >
             <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-indigo-400" />
+              <div className="w-8 h-8 rounded-xl bg-[#244536]/10 text-[#244536] flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-4 h-4 text-[#C78363]" />
+              </div>
               <div className="flex-1">
-                <p className="text-white font-medium">
-                  Great progress! You've added {savedActivities.length} activities to your itinerary.
+                <p className="text-sm font-semibold text-[#244536]">
+                  {savedActivities.length} activities curated in your custom itinerary.
                 </p>
-                <p className="text-sm text-slate-400">
-                  Estimated budget: ${getTotalBudget()} • Click "My Itinerary" to see details
+                <p className="text-xs text-[#292D2A]/60 font-mono mt-0.5">
+                  Estimated budget: ${getTotalBudget()} • Click &quot;Itinerary Activities&quot; to review timing and details
                 </p>
               </div>
             </div>
@@ -107,37 +112,40 @@ export function MoodBoard({ images, categoryDetails }: MoodBoardProps) {
         )}
       </motion.div>
 
+      {/* Grid of visual cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {images.map((image, index) => (
           <motion.div
             key={image.id}
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.1, duration: 0.5 }}
-            whileHover={{ scale: 1.05, zIndex: 10 }}
+            transition={{ delay: index * 0.06, duration: 0.4 }}
+            whileHover={{ scale: 1.02 }}
             onClick={() => handleCardClick(image.category)}
-            className="relative group overflow-hidden rounded-2xl aspect-square cursor-pointer bg-slate-800"
+            className="relative group overflow-hidden rounded-2xl aspect-square cursor-pointer bg-[#E7ECE5] border border-[#244536]/10 shadow-xs hover:shadow-md transition-all"
           >
             <img
               src={imageErrors[image.id] ? getFallbackImage(image.category) : image.url}
               alt={image.alt}
               onError={() => handleImageError(image.id)}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-108"
               loading="lazy"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent opacity-80 group-hover:opacity-95 transition-opacity duration-300">
               <div className="absolute bottom-0 left-0 right-0 p-4">
-                <p className="text-white font-semibold text-lg capitalize mb-1">{image.category}</p>
-                <p className="text-slate-300 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  Click to explore & plan
+                <p className="text-white font-serif font-bold text-lg capitalize mb-0.5 tracking-tight">
+                  {image.category}
+                </p>
+                <p className="text-[#F7F5EF]/80 text-xs font-mono uppercase tracking-wider">
+                  Explore & Plan &rarr;
                 </p>
               </div>
             </div>
             
             {/* Indicator if activities from this category are saved */}
             {savedActivities.some(a => a.category === image.category) && (
-              <div className="absolute top-3 right-3 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                <ListChecks className="w-4 h-4 text-white" />
+              <div className="absolute top-3 right-3 w-7 h-7 bg-[#244536] text-white rounded-full flex items-center justify-center shadow-md">
+                <ListChecks className="w-3.5 h-3.5" />
               </div>
             )}
           </motion.div>

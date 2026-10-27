@@ -12,12 +12,12 @@ import { FoodRecommendations } from '@/components/FoodRecommendations';
 import { PackingList } from '@/components/PackingList';
 import { Itinerary } from '@/components/Itinerary';
 import { TravelInsights } from '@/components/TravelInsights';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, Share2, Heart, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, Share2, Heart, Loader2, Map } from 'lucide-react';
 import { shareContent } from '@/lib/shareUtils';
 import { exportTravelBoardPDF } from '@/lib/pdfUtils';
+import Link from 'next/link';
 
 function DashboardPage() {
   const router = useRouter();
@@ -39,7 +39,7 @@ function DashboardPage() {
   const handleShare = async () => {
     const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
     await shareContent({
-      title: `Travel Mood Board - ${currentBoard.destination.name}`,
+      title: `Travel Canvas - ${currentBoard.destination.name}`,
       text: `Check out my travel plan for ${currentBoard.destination.name}! ${currentBoard.destination.description.slice(0, 100)}...`,
       url: currentUrl,
     });
@@ -55,59 +55,71 @@ function DashboardPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950">
-      <ThemeToggle />
-      
-      {/* Fixed Header */}
+    <main className="min-h-screen bg-[#F7F5EF] text-[#292D2A]">
+      {/* Sub-header Navigation Bar */}
       <motion.header
-        initial={{ y: -100 }}
+        initial={{ y: -40 }}
         animate={{ y: 0 }}
-        className="fixed top-16 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800"
+        className="sticky top-16 left-0 right-0 z-40 bg-[#F7F5EF]/95 backdrop-blur-md border-b border-[#244536]/10 shadow-xs"
       >
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
           <Button
             variant="ghost"
             onClick={() => router.push('/home')}
-            className="gap-2"
+            className="text-xs font-mono uppercase tracking-wider text-[#244536] hover:bg-[#244536]/8 gap-2"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to Planner</span>
           </Button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/workspace/trip-amalfi-classic">
+              <Button
+                variant="outline"
+                className="hidden sm:inline-flex border-[#244536]/25 bg-white text-[#244536] hover:bg-[#244536]/5 text-xs font-medium gap-1.5 h-9 rounded-xl"
+              >
+                <Map className="w-3.5 h-3.5" />
+                <span>Open in Map Workspace</span>
+              </Button>
+            </Link>
+
             <Button
               variant="ghost"
               size="icon"
               onClick={() => toggleFavorite(currentBoard.id)}
+              className="h-9 w-9 text-[#C78363] hover:bg-[#C78363]/10 rounded-xl"
+              title="Save to favorites"
             >
               <Heart
-                className={`w-5 h-5 ${
-                  isFavorite ? 'fill-red-500 text-red-500' : 'text-slate-400'
+                className={`w-4 h-4 ${
+                  isFavorite ? 'fill-[#C78363] text-[#C78363]' : 'text-[#292D2A]/60'
                 }`}
               />
             </Button>
+
             <Button 
               variant="outline" 
-              className="gap-2"
+              className="gap-1.5 text-xs h-9 bg-white border-[#244536]/20 text-[#292D2A] hover:bg-[#F7F5EF] rounded-xl"
               onClick={handleShare}
             >
-              <Share2 className="w-4 h-4" />
-              Share
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share</span>
             </Button>
+
             <Button 
-              className="gap-2"
+              className="gap-1.5 text-xs h-9 bg-[#244536] text-white hover:bg-[#1B3529] rounded-xl shadow-xs"
               onClick={handleExportPDF}
               disabled={isExporting}
             >
               {isExporting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Generating...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Exporting...</span>
                 </>
               ) : (
                 <>
-                  <Download className="w-4 h-4" />
-                  Export PDF
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export PDF</span>
                 </>
               )}
             </Button>
@@ -116,8 +128,8 @@ function DashboardPage() {
       </motion.header>
 
       {/* Main Content */}
-      <div className="pt-40 pb-12">
-        <div className="max-w-7xl mx-auto px-4 space-y-12">
+      <div className="py-10 pb-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <DestinationOverview destination={currentBoard.destination} />
           <MoodBoard images={currentBoard.moodBoard} categoryDetails={currentBoard.categoryDetails} />
           <ColorPalette colors={currentBoard.colorPalette} />
@@ -130,9 +142,10 @@ function DashboardPage() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-slate-400">
-          <p>Made with ❤️ by WanderCanvas</p>
+      <footer className="border-t border-[#244536]/10 py-8 bg-[#FAF8F5]">
+        <div className="max-w-7xl mx-auto px-4 text-center text-xs font-mono text-[#292D2A]/60 space-y-1">
+          <p className="font-serif font-bold text-sm text-[#244536]">WanderCanvas</p>
+          <p>Collaborative, Hygiene-Aware AI Travel Planning Platform</p>
         </div>
       </footer>
     </main>

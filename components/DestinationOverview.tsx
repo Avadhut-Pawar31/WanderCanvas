@@ -13,87 +13,89 @@ interface DestinationOverviewProps {
 export function DestinationOverview({ destination }: DestinationOverviewProps) {
   const [imageError, setImageError] = useState(false);
   
-  const fallbackImage = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&q=80';
+  const fallbackImage = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&q=85';
 
   return (
     <motion.section
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-      className="relative overflow-hidden rounded-3xl"
+      transition={{ duration: 0.5 }}
+      className="relative overflow-hidden rounded-3xl border border-[#244536]/10 shadow-sm"
     >
-      <div className="relative h-96">
+      {/* Hero Banner */}
+      <div className="relative h-96 bg-[#E7ECE5]">
         <img
           src={imageError ? fallbackImage : destination.heroImage}
           alt={destination.name}
           onError={() => setImageError(true)}
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
         
-        <div className="absolute bottom-0 left-0 right-0 p-8">
+        <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-10">
           <motion.h1
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-5xl font-bold text-white mb-4"
+            transition={{ delay: 0.15 }}
+            className="text-4xl sm:text-6xl font-serif font-bold text-white mb-3 tracking-tight"
           >
             {destination.name}
           </motion.h1>
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-lg text-slate-200 max-w-3xl"
+            transition={{ delay: 0.25 }}
+            className="text-sm sm:text-base text-white/90 max-w-3xl leading-relaxed"
           >
             {destination.description}
           </motion.p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-8 bg-slate-900/50 backdrop-blur-sm">
+      {/* Editorial Key Stats Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 sm:p-8 bg-white border-t border-[#244536]/10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex items-start gap-4"
+        >
+          <div className="p-3 rounded-2xl bg-[#244536]/8 text-[#244536]">
+            <Calendar className="w-5 h-5 text-[#244536]" />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-[#292D2A]/60 font-semibold">Ideal Season</p>
+            <p className="text-base font-serif font-bold text-[#244536] mt-0.5">{destination.bestSeason}</p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
           className="flex items-start gap-4"
         >
-          <div className="p-3 rounded-xl bg-indigo-500/20">
-            <Calendar className="w-6 h-6 text-indigo-400" />
+          <div className="p-3 rounded-2xl bg-[#244536]/8 text-[#244536]">
+            <Cloud className="w-5 h-5 text-[#244536]" />
           </div>
           <div>
-            <p className="text-sm text-slate-400">Best Season</p>
-            <p className="text-lg font-semibold text-white">{destination.bestSeason}</p>
+            <p className="text-xs font-mono uppercase tracking-wider text-[#292D2A]/60 font-semibold">Climate & Atmosphere</p>
+            <p className="text-base font-serif font-bold text-[#244536] mt-0.5">{destination.weather}</p>
           </div>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
           className="flex items-start gap-4"
         >
-          <div className="p-3 rounded-xl bg-purple-500/20">
-            <Cloud className="w-6 h-6 text-purple-400" />
+          <div className="p-3 rounded-2xl bg-[#C78363]/10 text-[#C78363]">
+            <DollarSign className="w-5 h-5 text-[#C78363]" />
           </div>
           <div>
-            <p className="text-sm text-slate-400">Weather</p>
-            <p className="text-lg font-semibold text-white">{destination.weather}</p>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="flex items-start gap-4"
-        >
-          <div className="p-3 rounded-xl bg-pink-500/20">
-            <DollarSign className="w-6 h-6 text-pink-400" />
-          </div>
-          <div>
-            <p className="text-sm text-slate-400">Daily Budget</p>
-            <p className="text-lg font-semibold text-white">
+            <p className="text-xs font-mono uppercase tracking-wider text-[#292D2A]/60 font-semibold">Estimated Daily Budget</p>
+            <p className="text-base font-serif font-bold text-[#244536] mt-0.5">
               {formatCurrency(destination.dailyBudget)}
             </p>
           </div>

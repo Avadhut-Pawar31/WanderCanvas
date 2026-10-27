@@ -4,10 +4,10 @@ import { motion } from 'framer-motion';
 import { Plane, MapPin, Camera, Compass } from 'lucide-react';
 
 const cards = [
-  { icon: Plane, label: 'Flights', delay: 0 },
-  { icon: MapPin, label: 'Destinations', delay: 0.2 },
-  { icon: Camera, label: 'Memories', delay: 0.4 },
-  { icon: Compass, label: 'Adventures', delay: 0.6 },
+  { icon: Plane, label: 'Scenic Corridors', delay: 0 },
+  { icon: MapPin, label: 'Clean Washrooms', delay: 0.2 },
+  { icon: Camera, label: 'Artisan Stops', delay: 0.4 },
+  { icon: Compass, label: 'Shared Itineraries', delay: 0.6 },
 ];
 
 export function FloatingCards() {
@@ -16,12 +16,12 @@ export function FloatingCards() {
       {cards.map((card, index) => (
         <motion.div
           key={card.label}
-          className="absolute bg-slate-800/30 backdrop-blur-md border border-slate-700/50 rounded-2xl p-4 flex items-center gap-3"
-          initial={{ opacity: 0, y: 20 }}
+          className="absolute bg-white/85 backdrop-blur-md border border-[#244536]/15 rounded-2xl p-3.5 flex items-center gap-2.5 shadow-xs"
+          initial={{ opacity: 0, y: 16 }}
           animate={{
-            opacity: [0.4, 0.8, 0.4],
-            y: [0, -20, 0],
-            x: [0, 10, 0],
+            opacity: [0.4, 0.85, 0.4],
+            y: [0, -16, 0],
+            x: [0, 8, 0],
           }}
           transition={{
             duration: 4,
@@ -30,12 +30,12 @@ export function FloatingCards() {
             ease: "easeInOut",
           }}
           style={{
-            top: `${20 + index * 20}%`,
-            left: `${10 + index * 15}%`,
+            top: `${20 + index * 18}%`,
+            left: `${8 + index * 18}%`,
           }}
         >
-          <card.icon className="w-5 h-5 text-indigo-400" />
-          <span className="text-sm text-slate-300">{card.label}</span>
+          <card.icon className="w-4 h-4 text-[#244536]" />
+          <span className="text-xs font-serif font-bold text-[#292D2A]">{card.label}</span>
         </motion.div>
       ))}
     </div>

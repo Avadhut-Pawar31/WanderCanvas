@@ -1,11 +1,10 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, DollarSign, MapPin, Calendar, Plus, Check } from 'lucide-react';
+import { X, Clock, DollarSign, Calendar, Plus, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CategoryDetails, SavedActivity, TravelPriority } from '@/types';
 import { Button } from './ui/button';
-import { generateId } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 interface CategoryDetailModalProps {
@@ -62,7 +61,7 @@ export function CategoryDetailModal({
       estimatedCost: parseCost(place.estimatedCost),
       duration: place.duration,
       priority: selectedPriority,
-      addedAt: new Date(), // This is fine - only called on client interaction
+      addedAt: new Date(),
     };
 
     onSaveActivity(activity);
@@ -71,9 +70,12 @@ export function CategoryDetailModal({
 
   const getPriorityColor = (priority: TravelPriority) => {
     switch (priority) {
-      case 'must-visit': return 'bg-green-500/20 text-green-400 border-green-500';
-      case 'nice-to-visit': return 'bg-blue-500/20 text-blue-400 border-blue-500';
-      case 'skip': return 'bg-slate-500/20 text-slate-400 border-slate-500';
+      case 'must-visit':
+        return 'bg-[#244536] text-white border-[#244536]';
+      case 'nice-to-visit':
+        return 'bg-[#C78363] text-white border-[#C78363]';
+      case 'skip':
+        return 'bg-[#292D2A]/10 text-[#292D2A] border-[#292D2A]/20';
     }
   };
 
@@ -81,7 +83,7 @@ export function CategoryDetailModal({
     switch (priority) {
       case 'must-visit': return 'Must Visit';
       case 'nice-to-visit': return 'Nice to Visit';
-      case 'skip': return 'Skip';
+      case 'skip': return 'Optional / Skip';
     }
   };
 
@@ -93,41 +95,41 @@ export function CategoryDetailModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+            transition={{ duration: 0.25 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 my-8"
+            className="relative max-w-3xl w-full bg-white rounded-3xl shadow-2xl border border-[#244536]/15 my-8 overflow-hidden text-[#292D2A]"
           >
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 transition-colors z-10"
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/90 text-[#292D2A] hover:bg-white shadow-md transition-colors z-10"
             >
-              <X className="w-5 h-5 text-white" />
+              <X className="w-4 h-4 text-[#244536]" />
             </button>
 
             {/* Header Image */}
-            <div className="relative h-64 rounded-t-2xl overflow-hidden">
+            <div className="relative h-60 bg-[#E7ECE5] overflow-hidden">
               <img
                 src={category.imageUrl}
                 alt={category.category}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
-              <div className="absolute bottom-6 left-6">
-                <h2 className="text-4xl font-bold text-white capitalize mb-2">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+              <div className="absolute bottom-6 left-6 right-6">
+                <h2 className="text-3xl font-serif font-bold text-white capitalize mb-2">
                   {category.category}
                 </h2>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {category.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-sm border border-indigo-500/30"
+                      className="px-2.5 py-0.5 bg-white/90 text-[#244536] rounded-md text-[11px] font-mono uppercase font-semibold"
                     >
                       {tag}
                     </span>
@@ -137,50 +139,57 @@ export function CategoryDetailModal({
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 sm:p-8 space-y-6">
               {/* Why Popular */}
               <div>
-                <h3 className="text-xl font-semibold text-white mb-2">Why Visit?</h3>
-                <p className="text-slate-300 leading-relaxed">{category.whyPopular}</p>
+                <h3 className="text-base font-serif font-bold text-[#244536] mb-1.5">
+                  Why Experience This?
+                </h3>
+                <p className="text-xs text-[#292D2A]/75 leading-relaxed font-sans">
+                  {category.whyPopular}
+                </p>
               </div>
 
-              {/* Quick Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-start gap-3 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                  <DollarSign className="w-5 h-5 text-green-400 mt-0.5" />
+              {/* Quick Info Strip */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="flex items-start gap-3 p-3.5 bg-[#F7F5EF] rounded-2xl border border-[#244536]/10">
+                  <DollarSign className="w-4 h-4 text-[#C78363] mt-0.5" />
                   <div>
-                    <p className="text-sm text-slate-400">Estimated Cost</p>
-                    <p className="text-white font-medium">{category.estimatedCost}</p>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-[#292D2A]/50">Est. Cost</p>
+                    <p className="text-sm font-semibold text-[#244536]">{category.estimatedCost}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                  <Calendar className="w-5 h-5 text-blue-400 mt-0.5" />
+                <div className="flex items-start gap-3 p-3.5 bg-[#F7F5EF] rounded-2xl border border-[#244536]/10">
+                  <Calendar className="w-4 h-4 text-[#244536] mt-0.5" />
                   <div>
-                    <p className="text-sm text-slate-400">Best Time</p>
-                    <p className="text-white font-medium">{category.bestTime}</p>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-[#292D2A]/50">Best Time</p>
+                    <p className="text-sm font-semibold text-[#244536]">{category.bestTime}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                  <Clock className="w-5 h-5 text-purple-400 mt-0.5" />
+                <div className="flex items-start gap-3 p-3.5 bg-[#F7F5EF] rounded-2xl border border-[#244536]/10">
+                  <Clock className="w-4 h-4 text-[#244536] mt-0.5" />
                   <div>
-                    <p className="text-sm text-slate-400">Duration</p>
-                    <p className="text-white font-medium">{category.recommendedDuration}</p>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-[#292D2A]/50">Recommended</p>
+                    <p className="text-sm font-semibold text-[#244536]">{category.recommendedDuration}</p>
                   </div>
                 </div>
               </div>
 
               {/* Priority Selector */}
               <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Set Priority</h3>
-                <div className="flex gap-3">
+                <h3 className="text-xs font-mono uppercase tracking-wider text-[#244536] font-semibold mb-2.5">
+                  Set Itinerary Priority
+                </h3>
+                <div className="flex flex-wrap gap-2">
                   {(['must-visit', 'nice-to-visit', 'skip'] as TravelPriority[]).map((priority) => (
                     <button
                       key={priority}
+                      type="button"
                       onClick={() => setSelectedPriority(priority)}
-                      className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                         selectedPriority === priority
                           ? getPriorityColor(priority)
-                          : 'bg-slate-800/30 text-slate-400 border-slate-700 hover:border-slate-600'
+                          : 'bg-white text-[#292D2A]/70 border-[#244536]/15 hover:bg-[#F7F5EF]'
                       }`}
                     >
                       {getPriorityLabel(priority)}
@@ -191,36 +200,35 @@ export function CategoryDetailModal({
 
               {/* Top Places */}
               <div>
-                <h3 className="text-xl font-semibold text-white mb-4">Top 3 Recommended Places</h3>
-                <div className="space-y-4">
+                <h3 className="text-base font-serif font-bold text-[#244536] mb-3">
+                  Top Recommended Locations
+                </h3>
+                <div className="space-y-3">
                   {category.topPlaces.map((place, index) => {
                     const activityId = `${category.category}-${place.id}`;
                     const isAdded = savedActivityIds.includes(activityId);
                     
                     return (
-                      <motion.div
+                      <div
                         key={place.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="p-4 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-slate-600 transition-colors"
+                        className="p-4 bg-[#F7F5EF]/60 rounded-2xl border border-[#244536]/10 hover:border-[#244536]/25 transition-all"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-sm font-semibold">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#244536] text-[#F7F5EF] text-[11px] font-mono font-bold">
                                 {index + 1}
                               </span>
-                              <h4 className="text-lg font-semibold text-white">{place.name}</h4>
+                              <h4 className="text-sm font-serif font-bold text-[#292D2A]">{place.name}</h4>
                             </div>
-                            <p className="text-slate-300 mb-3">{place.description}</p>
-                            <div className="flex flex-wrap gap-4 text-sm">
-                              <div className="flex items-center gap-1 text-slate-400">
-                                <DollarSign className="w-4 h-4" />
+                            <p className="text-xs text-[#292D2A]/70 mb-2 leading-relaxed">{place.description}</p>
+                            <div className="flex flex-wrap gap-3 text-xs font-mono text-[#292D2A]/60">
+                              <div className="flex items-center gap-1">
+                                <DollarSign className="w-3.5 h-3.5 text-[#C78363]" />
                                 <span>{place.estimatedCost}</span>
                               </div>
-                              <div className="flex items-center gap-1 text-slate-400">
-                                <Clock className="w-4 h-4" />
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-[#244536]" />
                                 <span>{place.duration}</span>
                               </div>
                             </div>
@@ -229,22 +237,26 @@ export function CategoryDetailModal({
                             onClick={() => handleSavePlace(place)}
                             disabled={isAdded}
                             size="sm"
-                            className={isAdded ? 'bg-green-600 hover:bg-green-600' : ''}
+                            className={`rounded-xl text-xs font-medium h-8 px-3 shadow-xs ${
+                              isAdded 
+                                ? 'bg-[#244536]/15 text-[#244536] hover:bg-[#244536]/15' 
+                                : 'bg-[#244536] text-white hover:bg-[#1B3529]'
+                            }`}
                           >
                             {isAdded ? (
                               <>
-                                <Check className="w-4 h-4 mr-1" />
+                                <Check className="w-3.5 h-3.5 mr-1" />
                                 Added
                               </>
                             ) : (
                               <>
-                                <Plus className="w-4 h-4 mr-1" />
+                                <Plus className="w-3.5 h-3.5 mr-1" />
                                 Add
                               </>
                             )}
                           </Button>
                         </div>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
