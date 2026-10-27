@@ -30,11 +30,12 @@ export function InteractiveRouteMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<HTMLDivElement>(null);
   const leafletInstanceRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null);
 
-  const [mapMode, setMapMode] = useState<'interactive' | 'canvas'>('interactive');
+  const [mapMode, setMapMode] = useState<'street' | 'satellite' | 'canvas'>('street');
   const [isLeafletReady, setIsLeafletReady] = useState(false);
 
-  // Initialize Free Interactive Street Map (Leaflet + OpenStreetMap CartoDB Voyager)
+  // Initialize Free Interactive Map (Leaflet + OpenStreetMap & Esri Satellite)
   useEffect(() => {
     if (typeof window === 'undefined' || !leafletMapRef.current) return;
     let isMounted = true;
@@ -57,24 +58,41 @@ export function InteractiveRouteMap({
       // Add zoom control at bottom right
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-      // Standard Free OpenStreetMap Tiles: 100% Free, Zero Watermarks, Zero API Keys, Zero Billing
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      // Base Tile Layer (Street or Satellite)
+      const tileUrl = mapMode === 'satellite'
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+      const tileLayer = L.tileLayer(tileUrl, {
+        attribution: mapMode === 'satellite'
+          ? 'Tiles &copy; Esri &mdash; High-Res Satellite'
+          : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(map);
 
+      tileLayerRef.current = tileLayer;
+
       const allLatLngs: [number, number][] = [];
 
-      // 1. Draw Route Polyline
+      // 1. Draw Route Polyline with high-contrast dual casing for street & satellite
       const pathCoords: [number, number][] = route.coordinatesPath.map((coord) => [coord[0], coord[1]]);
       if (pathCoords.length > 0) {
+        // Casing halo
+        L.polyline(pathCoords, {
+          color: '#FFFFFF',
+          weight: 6,
+          opacity: 0.85,
+        }).addTo(map);
+
+        // Core line
         L.polyline(pathCoords, {
           color: '#244536',
           weight: 4,
-          opacity: 0.9,
+          opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
         }).addTo(map);
+
         allLatLngs.push(...pathCoords);
       }
 
@@ -82,7 +100,7 @@ export function InteractiveRouteMap({
       const originIcon = L.divIcon({
         className: 'custom-leaflet-marker',
         html: `
-          <div style="background-color: #244536; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+          <div style="background-color: #244536; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
             A
           </div>
         `,
@@ -98,7 +116,7 @@ export function InteractiveRouteMap({
       const destIcon = L.divIcon({
         className: 'custom-leaflet-marker',
         html: `
-          <div style="background-color: #C78363; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+          <div style="background-color: #C78363; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
             B
           </div>
         `,
@@ -115,7 +133,7 @@ export function InteractiveRouteMap({
         const stopIcon = L.divIcon({
           className: 'custom-leaflet-marker',
           html: `
-            <div style="background-color: #244536; color: white; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.2);">
+            <div style="background-color: #244536; color: white; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.25);">
               ${index + 1}
             </div>
           `,
@@ -134,7 +152,7 @@ export function InteractiveRouteMap({
         const candidateIcon = L.divIcon({
           className: 'custom-leaflet-marker',
           html: `
-            <div style="background-color: ${isSelected ? '#244536' : '#FFFFFF'}; color: ${isSelected ? '#FFFFFF' : '#244536'}; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 10px; border: 2px solid #244536; box-shadow: 0 2px 6px rgba(0,0,0,0.15); cursor: pointer;">
+            <div style="background-color: ${isSelected ? '#244536' : '#FFFFFF'}; color: ${isSelected ? '#FFFFFF' : '#244536'}; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 10px; border: 2px solid #244536; box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: pointer;">
               ${place.hygieneScore || '★'}
             </div>
           `,
@@ -169,9 +187,14 @@ export function InteractiveRouteMap({
     };
   }, [route, stops, candidatePlaces, selectedPlace, onSelectPlace]);
 
-  // Handle map container resize when switching modes
+  // Dynamically swap tiles when switching between Street and Satellite
   useEffect(() => {
-    if (mapMode === 'interactive' && leafletInstanceRef.current) {
+    if (leafletInstanceRef.current && tileLayerRef.current) {
+      if (mapMode === 'satellite') {
+        tileLayerRef.current.setUrl('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+      } else if (mapMode === 'street') {
+        tileLayerRef.current.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+      }
       setTimeout(() => {
         leafletInstanceRef.current?.invalidateSize();
       }, 100);
@@ -239,19 +262,30 @@ export function InteractiveRouteMap({
           </div>
         </div>
 
-        {/* Mode Switcher & Zero Cost Status */}
+        {/* 3-Way Mode Switcher: Street / Satellite / Canvas */}
         <div className="flex items-center gap-2 pointer-events-auto">
           <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-[#244536]/10 shadow-sm flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setMapMode('interactive')}
+              onClick={() => setMapMode('street')}
               className={`px-3 py-1 rounded-xl text-xs font-medium transition ${
-                mapMode === 'interactive'
+                mapMode === 'street'
                   ? 'bg-[#244536] text-white shadow-xs'
                   : 'text-[#5F6761] hover:text-[#244536]'
               }`}
             >
-              Interactive Map
+              Street
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapMode('satellite')}
+              className={`px-3 py-1 rounded-xl text-xs font-medium transition ${
+                mapMode === 'satellite'
+                  ? 'bg-[#244536] text-white shadow-xs'
+                  : 'text-[#5F6761] hover:text-[#244536]'
+              }`}
+            >
+              Satellite
             </button>
             <button
               type="button"
@@ -262,7 +296,7 @@ export function InteractiveRouteMap({
                   : 'text-[#5F6761] hover:text-[#244536]'
               }`}
             >
-              Canvas Route
+              Canvas
             </button>
           </div>
 
@@ -270,16 +304,22 @@ export function InteractiveRouteMap({
             <span className="w-2 h-2 rounded-full bg-[#244536] animate-pulse" />
             <span className="text-[#244536] font-medium flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-[#244536]" />
-              <span>Free OpenStreetMap Engine</span>
+              <span>
+                {mapMode === 'satellite'
+                  ? 'Free High-Res Satellite View'
+                  : mapMode === 'street'
+                  ? 'Free OpenStreetMap View'
+                  : 'WanderCanvas Route Engine'}
+              </span>
             </span>
           </div>
         </div>
       </div>
 
-      {/* Layer 1: Free Interactive Leaflet OpenStreetMap Viewport */}
+      {/* Layer 1: Free Interactive Leaflet Viewport (Street & Satellite) */}
       <div
         ref={leafletMapRef}
-        className={`w-full h-full z-10 ${mapMode === 'interactive' ? 'block' : 'hidden'}`}
+        className={`w-full h-full z-10 ${mapMode === 'street' || mapMode === 'satellite' ? 'block' : 'hidden'}`}
       />
 
       {/* Layer 2: Bespoke Canvas Schematic Viewport */}
