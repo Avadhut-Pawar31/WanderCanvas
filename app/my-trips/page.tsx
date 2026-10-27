@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import { CollaborationService } from '@/services/collaborationService';
 import { CollaborativeTrip, TravelMode } from '@/types';
 import { useAuthStore } from '@/store/useAuthStore';
+import { PlacesAutocompleteInput } from '@/components/map/PlacesAutocompleteInput';
 import toast from 'react-hot-toast';
 
 function MyTripsPage() {
@@ -429,22 +430,20 @@ function MyTripsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-mono uppercase text-[#292D2A]/70 mb-1">Starting Point</label>
-                    <input
-                      type="text"
-                      required
+                    <PlacesAutocompleteInput
+                      placeholder="e.g. Florence, Italy"
                       value={newTripData.origin}
-                      onChange={(e) => setNewTripData({ ...newTripData, origin: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-[#244536]/20 text-sm text-[#292D2A] focus:outline-hidden focus:border-[#244536]"
+                      onChange={(val) => setNewTripData({ ...newTripData, origin: val })}
+                      onPlaceSelect={(place) => setNewTripData({ ...newTripData, origin: place.name || place.address })}
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-mono uppercase text-[#292D2A]/70 mb-1">Destination</label>
-                    <input
-                      type="text"
-                      required
+                    <PlacesAutocompleteInput
+                      placeholder="e.g. Siena, Italy"
                       value={newTripData.destination}
-                      onChange={(e) => setNewTripData({ ...newTripData, destination: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-[#244536]/20 text-sm text-[#292D2A] focus:outline-hidden focus:border-[#244536]"
+                      onChange={(val) => setNewTripData({ ...newTripData, destination: val })}
+                      onPlaceSelect={(place) => setNewTripData({ ...newTripData, destination: place.name || place.address })}
                     />
                   </div>
                 </div>
