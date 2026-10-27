@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { 
@@ -54,16 +54,23 @@ function MyTripsPage() {
     travelersCount: 3,
   });
 
-  const loadTrips = () => {
-    setTrips(CollaborationService.getAllTrips());
-  };
+  const loadTrips = useCallback(() => {
+    if (user?.id) {
+      CollaborationService.fetchUserTripsFromSupabase(user.id).then((fetched) => {
+        setTrips(fetched);
+      });
+    } else {
+      setTrips(CollaborationService.getAllTrips());
+    }
+  }, [user?.id]);
 
   useEffect(() => {
+    loadTrips();
     const unsubscribe = CollaborationService.subscribeToUpdates(() => {
-      setTrips(CollaborationService.getAllTrips());
+      loadTrips();
     });
     return () => unsubscribe();
-  }, []);
+  }, [loadTrips]);
 
   const handleCopyCode = (code: string, e: React.MouseEvent) => {
     e.stopPropagation();

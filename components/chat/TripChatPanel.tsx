@@ -25,7 +25,22 @@ export function TripChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Subscribe to real-time chat messages
+    // 1. Fetch historical messages from Supabase
+    ChatService.fetchMessagesAsync(tripId).then((remoteMsgs) => {
+      if (remoteMsgs && remoteMsgs.length > 0) {
+        setMessages((prev) => {
+          const merged = [...prev];
+          remoteMsgs.forEach((rm) => {
+            if (!merged.some((m) => m.id === rm.id)) {
+              merged.push(rm);
+            }
+          });
+          return merged;
+        });
+      }
+    });
+
+    // 2. Subscribe to real-time chat messages
     const unsubscribe = ChatService.subscribeToTripChat(tripId, (newMessage) => {
       setMessages((prev) => {
         if (prev.some((m) => m.id === newMessage.id)) return prev;

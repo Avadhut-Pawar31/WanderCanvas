@@ -37,7 +37,14 @@ export default function LoginPage() {
       toast.success('Welcome back to WanderCanvas!');
       router.push('/home');
     } else {
-      toast.error(result.error || 'Login failed');
+      if (result.error?.toLowerCase().includes('email not confirmed')) {
+        toast.error(
+          'Email not confirmed yet! Please click the confirmation link sent to your email, or in Supabase Dashboard click "Confirm user".',
+          { duration: 7000 }
+        );
+      } else {
+        toast.error(result.error || 'Login failed');
+      }
     }
   };
 

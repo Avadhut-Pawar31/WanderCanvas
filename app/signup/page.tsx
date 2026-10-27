@@ -46,8 +46,16 @@ export default function SignupPage() {
     setIsLoading(false);
     
     if (result.success) {
-      toast.success('Account created! Welcome to WanderCanvas.');
-      router.push('/home');
+      if (result.emailConfirmationRequired) {
+        toast.success(
+          'Account created! Please check your email to confirm your account (or confirm it in your Supabase dashboard).',
+          { duration: 6000 }
+        );
+        router.push('/login');
+      } else {
+        toast.success('Account created! Welcome to WanderCanvas.');
+        router.push('/home');
+      }
     } else {
       toast.error(result.error || 'Signup failed');
     }

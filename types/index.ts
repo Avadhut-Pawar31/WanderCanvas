@@ -47,6 +47,8 @@ export interface SavedActivity {
   categoryId: string;
   category: string;
   placeName: string;
+  title?: string;
+  description?: string;
   estimatedCost: number;
   duration: string;
   priority: TravelPriority;

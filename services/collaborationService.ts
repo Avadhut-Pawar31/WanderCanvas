@@ -4,10 +4,18 @@ import {
   StopSuggestion, 
   Waypoint, 
   Place,
-  TravelMode 
+  TravelMode,
+  TripMemberRole
 } from '@/types';
 import { generateId } from '@/lib/utils';
 import { MapRouteService } from './mapRouteService';
+import { createClient } from '@/lib/supabase/client';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(val: string): boolean {
+  return UUID_REGEX.test(val);
+}
 
 export class CollaborationService {
   private static STORAGE_KEY = 'wandercanvas_collaborative_trips';
@@ -36,19 +44,48 @@ export class CollaborationService {
   }
 
   /**
-   * Subscribe to real-time collaborative updates across browser windows and tabs.
+   * Subscribe to real-time collaborative updates across browser windows, tabs, and devices.
    */
   static subscribeToUpdates(callback: (event: { type: string; payload: unknown }) => void): () => void {
-    const channel = this.getChannel();
-    if (!channel) return () => {};
+    const unsubscribers: Array<() => void> = [];
 
-    const handler = (event: MessageEvent) => {
-      callback(event.data);
-    };
+    // 1. Local BroadcastChannel subscription (for fast zero-latency tab sync)
+    const localChannel = this.getChannel();
+    if (localChannel) {
+      const handler = (event: MessageEvent) => {
+        callback(event.data);
+      };
+      localChannel.addEventListener('message', handler);
+      unsubscribers.push(() => localChannel.removeEventListener('message', handler));
+    }
 
-    channel.addEventListener('message', handler);
+    // 2. Supabase Realtime publication subscription
+    if (typeof window !== 'undefined') {
+      try {
+        const supabase = createClient();
+        const realtimeChannel = supabase
+          .channel('collaboration-live-sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, (payload) => {
+            callback({ type: 'trip_updated', payload: payload.new });
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_members' }, (payload) => {
+            callback({ type: 'member_updated', payload: payload.new });
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'stops' }, (payload) => {
+            callback({ type: 'stop_updated', payload: payload.new });
+          })
+          .subscribe();
+
+        unsubscribers.push(() => {
+          supabase.removeChannel(realtimeChannel);
+        });
+      } catch (err) {
+        console.warn('Realtime collaboration subscription notice:', err);
+      }
+    }
+
     return () => {
-      channel.removeEventListener('message', handler);
+      unsubscribers.forEach(unsub => unsub());
     };
   }
 
@@ -88,6 +125,113 @@ export class CollaborationService {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(trips));
     } catch (err) {
       console.error('Failed to save collaborative trips:', err);
+    }
+  }
+
+  /**
+   * Fetch all trips from Supabase where the user is an owner or member,
+   * merged with local offline seed trips.
+   */
+  static async fetchUserTripsFromSupabase(userId: string): Promise<CollaborativeTrip[]> {
+    if (typeof window === 'undefined' || !isUuid(userId)) {
+      return this.getAllTrips();
+    }
+
+    try {
+      const supabase = createClient();
+      const { data: memberRows } = await supabase
+        .from('trip_members')
+        .select('trip_id')
+        .eq('user_id', userId);
+
+      const tripIds = memberRows?.map(m => m.trip_id) || [];
+      if (tripIds.length === 0) {
+        return this.getAllTrips();
+      }
+
+      const { data: dbTrips, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          trip_members (
+            user_id,
+            role,
+            joined_at,
+            profiles:user_id (full_name, avatar_url, email)
+          ),
+          stops (*)
+        `)
+        .in('id', tripIds)
+        .order('created_at', { ascending: false });
+
+      if (error || !dbTrips) {
+        return this.getAllTrips();
+      }
+
+      const mapped: CollaborativeTrip[] = dbTrips.map((dt: any) => {
+        const members: TripMember[] = (dt.trip_members || []).map((m: any) => ({
+          userId: m.user_id,
+          name: m.profiles?.full_name || 'Traveler',
+          email: m.profiles?.email || '',
+          avatar: m.profiles?.avatar_url,
+          role: m.role as TripMemberRole,
+          joinedAt: m.joined_at,
+        }));
+
+        const stops: Waypoint[] = (dt.stops || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          address: s.address,
+          coordinates: s.coordinates,
+          category: s.category,
+          detourKm: Number(s.detour_km) || 0,
+          detourMinutes: Number(s.detour_minutes) || 0,
+          order: s.stop_order,
+          notes: s.notes,
+          suggestedBy: s.suggested_by,
+        }));
+
+        return {
+          id: dt.id,
+          name: dt.name,
+          description: dt.description,
+          coverImage: dt.cover_image,
+          origin: dt.origin,
+          originCoordinates: dt.origin_coordinates,
+          destination: dt.destination,
+          destinationCoordinates: dt.destination_coordinates,
+          startDate: dt.start_date,
+          endDate: dt.end_date,
+          budget: Number(dt.budget) || 0,
+          travelMode: dt.travel_mode,
+          groupSize: dt.group_size,
+          preferences: dt.preferences || [],
+          washroomPreference: dt.washroom_preference,
+          ownerId: dt.owner_id,
+          members,
+          invitationCode: dt.invitation_code,
+          stops,
+          suggestions: [],
+          messages: [],
+          createdAt: dt.created_at,
+          updatedAt: dt.updated_at,
+        };
+      });
+
+      // Merge with local offline trips so seed trips are preserved
+      const local = this.getAllTrips();
+      const merged = [...mapped];
+      local.forEach(lt => {
+        if (!merged.some(m => m.id === lt.id || m.invitationCode === lt.invitationCode)) {
+          merged.push(lt);
+        }
+      });
+
+      this.saveTrips(merged);
+      return merged;
+    } catch (err) {
+      console.warn('fetchUserTripsFromSupabase notice:', err);
+      return this.getAllTrips();
     }
   }
 
@@ -206,6 +350,48 @@ export class CollaborationService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    // Persist to Supabase if owner has a valid authenticated UUID
+    if (typeof window !== 'undefined' && isUuid(params.owner.id)) {
+      try {
+        const supabase = createClient();
+        const { data: dbTrip, error: insertError } = await supabase
+          .from('trips')
+          .insert({
+            name: params.name,
+            description: params.description || `Journey from ${params.origin} to ${params.destination}`,
+            cover_image: newTrip.coverImage,
+            origin: params.origin,
+            origin_coordinates: route.origin.coordinates,
+            destination: params.destination,
+            destination_coordinates: route.destination.coordinates,
+            start_date: params.startDate.includes('T') ? params.startDate.split('T')[0] : params.startDate,
+            end_date: params.endDate.includes('T') ? params.endDate.split('T')[0] : params.endDate,
+            budget: params.budget,
+            travel_mode: params.travelMode || 'driving',
+            group_size: params.groupSize || 2,
+            preferences: params.preferences || ['Scenic Coastal', 'Clean Washrooms', 'Authentic Food'],
+            washroom_preference: params.washroomPreference || 'verified_only',
+            owner_id: params.owner.id,
+            invitation_code: invitationCode,
+            route_summary: {
+              distanceKm: route.distanceKm,
+              durationMinutes: route.durationMinutes,
+              summary: route.summary,
+              travelMode: route.travelMode,
+              coordinatesPath: route.coordinatesPath,
+            },
+          })
+          .select()
+          .single();
+
+        if (dbTrip && !insertError) {
+          newTrip.id = dbTrip.id;
+        }
+      } catch (err) {
+        console.warn('Supabase createTrip notice:', err);
+      }
+    }
 
     const trips = this.getAllTrips();
     trips.unshift(newTrip);
