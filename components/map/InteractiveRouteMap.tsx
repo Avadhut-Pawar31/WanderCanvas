@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { RouteInfo, Place, Waypoint } from '@/types';
-import { Navigation, Map as MapIcon, Layers, Compass } from 'lucide-react';
+import { Navigation, Map as MapIcon, Layers, Compass, CheckCircle2 } from 'lucide-react';
 import { HygieneService } from '@/services/hygieneService';
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import toast from 'react-hot-toast';
 
 interface InteractiveRouteMapProps {
@@ -29,223 +28,160 @@ export function InteractiveRouteMap({
   userRole = 'editor',
 }: InteractiveRouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const polylineRef = useRef<google.maps.Polyline | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
+  const leafletMapRef = useRef<HTMLDivElement>(null);
+  const leafletInstanceRef = useRef<any>(null);
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const isKeyValid = Boolean(apiKey && apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY');
+  const [mapMode, setMapMode] = useState<'interactive' | 'canvas'>('interactive');
+  const [isLeafletReady, setIsLeafletReady] = useState(false);
 
-  const [mapMode, setMapMode] = useState<'google' | 'schematic'>(() => {
-    return isKeyValid ? 'google' : 'schematic';
-  });
-  const [isGoogleMapLoaded, setIsGoogleMapLoaded] = useState(false);
-  const [billingError, setBillingError] = useState(false);
-
-  // Initialize real Google Map if key is configured
+  // Initialize Free Interactive Street Map (Leaflet + OpenStreetMap CartoDB Voyager)
   useEffect(() => {
-    if (!isKeyValid || !googleMapRef.current) return;
-
+    if (typeof window === 'undefined' || !leafletMapRef.current) return;
     let isMounted = true;
 
-    // Intercept Google Maps billing or authentication failures gracefully
-    if (typeof window !== 'undefined') {
-      (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
-        console.warn('Google Maps notice: Billing is not linked to this Google Cloud project. Falling back to Canvas Map.');
-        if (isMounted) {
-          setBillingError(true);
-          setMapMode('schematic');
-          setIsGoogleMapLoaded(false);
-        }
-      };
-    }
+    import('leaflet').then((L) => {
+      if (!isMounted || !leafletMapRef.current) return;
 
-    setOptions({
-      key: apiKey!,
-      v: 'weekly',
-    });
+      // Clean up previous instance if exists
+      if (leafletInstanceRef.current) {
+        leafletInstanceRef.current.remove();
+        leafletInstanceRef.current = null;
+      }
 
-    importLibrary('maps')
-      .then(() => {
-        if (!isMounted || !googleMapRef.current) return;
+      const map = L.map(leafletMapRef.current, {
+        center: [route.origin.coordinates.lat || 40.8518, route.origin.coordinates.lng || 14.2681],
+        zoom: 11,
+        zoomControl: false,
+      });
 
-        const defaultCenter = {
-          lat: route.origin.coordinates.lat || 40.8518,
-          lng: route.origin.coordinates.lng || 14.2681,
-        };
+      // Add zoom control at bottom right
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        const map = new google.maps.Map(googleMapRef.current, {
-          center: defaultCenter,
-          zoom: 11,
-          disableDefaultUI: false,
-          zoomControl: true,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          styles: [
-            {
-              featureType: 'all',
-              elementType: 'geometry',
-              stylers: [{ color: '#F2EFE9' }],
-            },
-            {
-              featureType: 'water',
-              elementType: 'geometry',
-              stylers: [{ color: '#C8DBD5' }],
-            },
-            {
-              featureType: 'road',
-              elementType: 'geometry',
-              stylers: [{ color: '#FFFFFF' }],
-            },
-            {
-              featureType: 'road.highway',
-              elementType: 'geometry',
-              stylers: [{ color: '#E4DDD3' }],
-            },
-            {
-              featureType: 'poi.park',
-              elementType: 'geometry',
-              stylers: [{ color: '#E1E9E2' }],
-            },
-          ],
+      // Standard Free OpenStreetMap Tiles: 100% Free, Zero Watermarks, Zero API Keys, Zero Billing
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      const allLatLngs: [number, number][] = [];
+
+      // 1. Draw Route Polyline
+      const pathCoords: [number, number][] = route.coordinatesPath.map((coord) => [coord[0], coord[1]]);
+      if (pathCoords.length > 0) {
+        L.polyline(pathCoords, {
+          color: '#244536',
+          weight: 4,
+          opacity: 0.9,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map);
+        allLatLngs.push(...pathCoords);
+      }
+
+      // 2. Origin Marker (A)
+      const originIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: `
+          <div style="background-color: #244536; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+            A
+          </div>
+        `,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+      L.marker([route.origin.coordinates.lat, route.origin.coordinates.lng], { icon: originIcon })
+        .addTo(map)
+        .bindPopup(`<b>Starting Point</b><br/>${route.origin.name}`);
+      allLatLngs.push([route.origin.coordinates.lat, route.origin.coordinates.lng]);
+
+      // 3. Destination Marker (B)
+      const destIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: `
+          <div style="background-color: #C78363; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+            B
+          </div>
+        `,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+      L.marker([route.destination.coordinates.lat, route.destination.coordinates.lng], { icon: destIcon })
+        .addTo(map)
+        .bindPopup(`<b>Destination</b><br/>${route.destination.name}`);
+      allLatLngs.push([route.destination.coordinates.lat, route.destination.coordinates.lng]);
+
+      // 4. Confirmed Stops Markers
+      stops.forEach((stop, index) => {
+        const stopIcon = L.divIcon({
+          className: 'custom-leaflet-marker',
+          html: `
+            <div style="background-color: #244536; color: white; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.2);">
+              ${index + 1}
+            </div>
+          `,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        });
+        L.marker([stop.coordinates.lat, stop.coordinates.lng], { icon: stopIcon })
+          .addTo(map)
+          .bindPopup(`<b>Stop ${index + 1}: ${stop.name}</b><br/>${stop.address}`);
+        allLatLngs.push([stop.coordinates.lat, stop.coordinates.lng]);
+      });
+
+      // 5. Candidate Stops Markers
+      candidatePlaces.forEach((place) => {
+        const isSelected = selectedPlace?.id === place.id;
+        const candidateIcon = L.divIcon({
+          className: 'custom-leaflet-marker',
+          html: `
+            <div style="background-color: ${isSelected ? '#244536' : '#FFFFFF'}; color: ${isSelected ? '#FFFFFF' : '#244536'}; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 10px; border: 2px solid #244536; box-shadow: 0 2px 6px rgba(0,0,0,0.15); cursor: pointer;">
+              ${place.hygieneScore || '★'}
+            </div>
+          `,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
         });
 
-        mapInstanceRef.current = map;
-        setIsGoogleMapLoaded(true);
-      })
-      .catch((err: unknown) => {
-        console.warn('Google Maps loading notice (falling back to Schematic canvas):', err);
-        if (isMounted) setMapMode('schematic');
+        const marker = L.marker([place.coordinates.lat, place.coordinates.lng], { icon: candidateIcon }).addTo(map);
+        marker.on('click', () => {
+          onSelectPlace?.(place);
+        });
+        allLatLngs.push([place.coordinates.lat, place.coordinates.lng]);
       });
+
+      // Fit map bounds neatly around route and stops
+      if (allLatLngs.length > 0) {
+        map.fitBounds(allLatLngs, { padding: [50, 50], maxZoom: 13 });
+      }
+
+      leafletInstanceRef.current = map;
+      setIsLeafletReady(true);
+    }).catch((err) => {
+      console.warn('Leaflet map notice:', err);
+    });
 
     return () => {
       isMounted = false;
+      if (leafletInstanceRef.current) {
+        leafletInstanceRef.current.remove();
+        leafletInstanceRef.current = null;
+      }
     };
-  }, [apiKey, isKeyValid, route.origin.coordinates]);
+  }, [route, stops, candidatePlaces, selectedPlace, onSelectPlace]);
 
-  // Update Google Map Markers & Polyline when data changes
+  // Handle map container resize when switching modes
   useEffect(() => {
-    if (!mapInstanceRef.current || !isGoogleMapLoaded || mapMode !== 'google') return;
-
-    const map = mapInstanceRef.current;
-
-    // Clear old markers
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
-
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
+    if (mapMode === 'interactive' && leafletInstanceRef.current) {
+      setTimeout(() => {
+        leafletInstanceRef.current?.invalidateSize();
+      }, 100);
     }
+  }, [mapMode]);
 
-    const bounds = new google.maps.LatLngBounds();
-
-    // 1. Draw Route Polyline
-    const pathCoords = route.coordinatesPath.map((coord) => ({
-      lat: coord[0],
-      lng: coord[1],
-    }));
-
-    pathCoords.forEach((pt) => bounds.extend(pt));
-
-    polylineRef.current = new google.maps.Polyline({
-      path: pathCoords,
-      geodesic: true,
-      strokeColor: '#244536',
-      strokeOpacity: 0.9,
-      strokeWeight: 4,
-      map,
-    });
-
-    // 2. Origin Marker
-    const originMarker = new google.maps.Marker({
-      position: { lat: route.origin.coordinates.lat, lng: route.origin.coordinates.lng },
-      map,
-      title: route.origin.name,
-      label: { text: 'A', color: '#FFFFFF', fontWeight: 'bold' },
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 14,
-        fillColor: '#244536',
-        fillOpacity: 1,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-      },
-    });
-    markersRef.current.push(originMarker);
-
-    // 3. Destination Marker
-    const destMarker = new google.maps.Marker({
-      position: { lat: route.destination.coordinates.lat, lng: route.destination.coordinates.lng },
-      map,
-      title: route.destination.name,
-      label: { text: 'B', color: '#FFFFFF', fontWeight: 'bold' },
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 14,
-        fillColor: '#C78363',
-        fillOpacity: 1,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-      },
-    });
-    markersRef.current.push(destMarker);
-
-    // 4. Confirmed Stops Markers
-    stops.forEach((stop, idx) => {
-      const pos = { lat: stop.coordinates.lat, lng: stop.coordinates.lng };
-      bounds.extend(pos);
-
-      const marker = new google.maps.Marker({
-        position: pos,
-        map,
-        title: stop.name,
-        label: { text: String(idx + 1), color: '#FFFFFF', fontWeight: 'bold' },
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: '#244536',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2,
-        },
-      });
-      markersRef.current.push(marker);
-    });
-
-    // 5. Candidate Places Markers
-    candidatePlaces.forEach((place) => {
-      const pos = { lat: place.coordinates.lat, lng: place.coordinates.lng };
-      bounds.extend(pos);
-
-      const isSelected = selectedPlace?.id === place.id;
-      const marker = new google.maps.Marker({
-        position: pos,
-        map,
-        title: `${place.name} (${place.category})`,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: isSelected ? 12 : 9,
-          fillColor: isSelected ? '#C78363' : '#FFFFFF',
-          fillOpacity: 1,
-          strokeColor: '#244536',
-          strokeWeight: 2,
-        },
-      });
-
-      marker.addListener('click', () => {
-        onSelectPlace?.(place);
-      });
-
-      markersRef.current.push(marker);
-    });
-
-    map.fitBounds(bounds, { top: 60, right: 40, bottom: 90, left: 40 });
-  }, [route, stops, candidatePlaces, selectedPlace, isGoogleMapLoaded, mapMode, onSelectPlace]);
-
-  // Compute SVG bounding box for schematic fallback
+  // Schematic vector projection calculation
   const allCoordinates: [number, number][] = [
+    [route.origin.coordinates.lat, route.origin.coordinates.lng],
+    [route.destination.coordinates.lat, route.destination.coordinates.lng],
     ...route.coordinatesPath,
     ...stops.map((s) => [s.coordinates.lat, s.coordinates.lng] as [number, number]),
     ...candidatePlaces.map((p) => [p.coordinates.lat, p.coordinates.lng] as [number, number]),
@@ -303,155 +239,143 @@ export function InteractiveRouteMap({
           </div>
         </div>
 
-        {/* Mode Switcher & Status */}
+        {/* Mode Switcher & Zero Cost Status */}
         <div className="flex items-center gap-2 pointer-events-auto">
-          {isKeyValid && (
-            <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-[#244536]/10 shadow-sm flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (billingError) {
-                    toast.error('Google Cloud Billing required to load satellite tiles. Showing Canvas Route.');
-                    return;
-                  }
-                  setMapMode('google');
-                }}
-                className={`px-3 py-1 rounded-xl text-xs font-medium transition ${
-                  mapMode === 'google'
-                    ? 'bg-[#244536] text-white shadow-xs'
-                    : 'text-[#5F6761] hover:text-[#244536]'
-                }`}
-              >
-                Satellite / Road
-              </button>
-              <button
-                type="button"
-                onClick={() => setMapMode('schematic')}
-                className={`px-3 py-1 rounded-xl text-xs font-medium transition ${
-                  mapMode === 'schematic'
-                    ? 'bg-[#244536] text-white shadow-xs'
-                    : 'text-[#5F6761] hover:text-[#244536]'
-                }`}
-              >
-                Canvas Route
-              </button>
-            </div>
-          )}
+          <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-[#244536]/10 shadow-sm flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setMapMode('interactive')}
+              className={`px-3 py-1 rounded-xl text-xs font-medium transition ${
+                mapMode === 'interactive'
+                  ? 'bg-[#244536] text-white shadow-xs'
+                  : 'text-[#5F6761] hover:text-[#244536]'
+              }`}
+            >
+              Interactive Map
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapMode('canvas')}
+              className={`px-3 py-1 rounded-xl text-xs font-medium transition ${
+                mapMode === 'canvas'
+                  ? 'bg-[#244536] text-white shadow-xs'
+                  : 'text-[#5F6761] hover:text-[#244536]'
+              }`}
+            >
+              Canvas Route
+            </button>
+          </div>
 
           <div className="bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#244536]/10 shadow-sm flex items-center gap-2 text-xs">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                billingError ? 'bg-[#C78363]' : 'bg-[#244536]'
-              } animate-pulse`}
-            />
-            <span className="text-[#244536] font-medium">
-              {billingError
-                ? 'Canvas Route (Billing required for tiles)'
-                : isKeyValid
-                ? 'Google Maps Connected'
-                : 'Geospatial Route Engine'}
+            <span className="w-2 h-2 rounded-full bg-[#244536] animate-pulse" />
+            <span className="text-[#244536] font-medium flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#244536]" />
+              <span>Free OpenStreetMap Engine</span>
             </span>
           </div>
         </div>
       </div>
 
-      {/* Layer 1: Real Google Map Viewport */}
+      {/* Layer 1: Free Interactive Leaflet OpenStreetMap Viewport */}
       <div
-        ref={googleMapRef}
-        className={`w-full h-full ${mapMode === 'google' && isKeyValid ? 'block' : 'hidden'}`}
+        ref={leafletMapRef}
+        className={`w-full h-full z-10 ${mapMode === 'interactive' ? 'block' : 'hidden'}`}
       />
 
-      {/* Layer 2: Schematic Vector Projection Canvas (Active or Fallback) */}
+      {/* Layer 2: Bespoke Canvas Schematic Viewport */}
       <div
         ref={containerRef}
         className={`relative w-full h-full cursor-grab active:cursor-grabbing overflow-hidden flex items-center justify-center ${
-          mapMode === 'schematic' || !isKeyValid ? 'block' : 'hidden'
+          mapMode === 'canvas' ? 'block' : 'hidden'
         }`}
       >
+        {/* Background Subtle Grid Pattern */}
         <div
-          className="absolute inset-0 opacity-15 pointer-events-none"
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
           style={{
-            backgroundImage: `radial-gradient(#244536 1px, transparent 1px)`,
+            backgroundImage: `radial-gradient(#244536 1.5px, transparent 1.5px)`,
             backgroundSize: '24px 24px',
           }}
         />
 
-        <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {/* SVG Route Corridor */}
+        <svg className="w-full h-full absolute inset-0 pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
           <defs>
-            <linearGradient id="routeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#244536" />
-              <stop offset="100%" stopColor="#C78363" />
+            <linearGradient id="routeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#244536" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#C78363" stopOpacity="0.85" />
             </linearGradient>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#244536" floodOpacity="0.25" />
+            </filter>
           </defs>
 
-          <path d={pathD} fill="none" stroke="#FFFFFF" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={pathD} fill="none" stroke="url(#routeGradient)" strokeWidth="2.0" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Route buffer halo */}
+          <path d={pathD} fill="none" stroke="#244536" strokeWidth="8" strokeOpacity="0.08" strokeLinecap="round" strokeLinejoin="round" />
 
-          {candidatePlaces.map((place) => {
-            const pt = projectPoint(place.coordinates.lat, place.coordinates.lng);
-            return (
-              <line
-                key={`detour-line-${place.id}`}
-                x1={pt.x}
-                y1={pt.y}
-                x2={pt.x + 0.1}
-                y2={pt.y + 0.1}
-                stroke="#C78363"
-                strokeWidth="0.6"
-                strokeDasharray="1,1"
-                opacity="0.6"
-              />
-            );
-          })}
+          {/* Main Route line */}
+          <path d={pathD} fill="none" stroke="url(#routeGrad)" strokeWidth="3" strokeDasharray="6,4" filter="url(#glow)" />
         </svg>
 
-        {/* HTML Markers for Schematic View */}
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Origin */}
-          <div style={{ left: `${originPoint.x}%`, top: `${originPoint.y}%` }} className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-10">
-            <div className="relative flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-[#244536] text-white flex items-center justify-center shadow-lg border-2 border-white text-xs font-bold ring-4 ring-[#244536]/20">
-                A
-              </div>
-              <span className="mt-1 px-2 py-0.5 rounded-md bg-white/95 text-[10px] font-semibold text-[#244536] shadow-sm whitespace-nowrap border border-[#244536]/10">
-                {route.origin.name}
-              </span>
-            </div>
+        {/* Origin Node A */}
+        <div
+          className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center group cursor-pointer"
+          style={{ left: `${originPoint.x}%`, top: `${originPoint.y}%` }}
+        >
+          <div className="w-8 h-8 rounded-full bg-[#244536] border-2 border-white shadow-md flex items-center justify-center text-white text-xs font-serif font-bold">
+            A
           </div>
+          <span className="mt-1 px-2 py-0.5 rounded-md bg-white/90 backdrop-blur-xs text-[11px] font-medium text-[#244536] border border-[#244536]/10 shadow-xs whitespace-nowrap">
+            {route.origin.name}
+          </span>
+        </div>
 
-          {/* Destination */}
-          <div style={{ left: `${destPoint.x}%`, top: `${destPoint.y}%` }} className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-10">
-            <div className="relative flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-[#C78363] text-white flex items-center justify-center shadow-lg border-2 border-white text-xs font-bold ring-4 ring-[#C78363]/25">
-                B
-              </div>
-              <span className="mt-1 px-2 py-0.5 rounded-md bg-white/95 text-[10px] font-semibold text-[#244536] shadow-sm whitespace-nowrap border border-[#244536]/10">
-                {route.destination.name}
-              </span>
-            </div>
+        {/* Destination Node B */}
+        <div
+          className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center group cursor-pointer"
+          style={{ left: `${destPoint.x}%`, top: `${destPoint.y}%` }}
+        >
+          <div className="w-8 h-8 rounded-full bg-[#C78363] border-2 border-white shadow-md flex items-center justify-center text-white text-xs font-serif font-bold">
+            B
           </div>
+          <span className="mt-1 px-2 py-0.5 rounded-md bg-white/90 backdrop-blur-xs text-[11px] font-medium text-[#C78363] border border-[#C78363]/20 shadow-xs whitespace-nowrap">
+            {route.destination.name}
+          </span>
+        </div>
 
-          {/* Stops */}
-          {stops.map((stop, idx) => {
-            const pt = projectPoint(stop.coordinates.lat, stop.coordinates.lng);
-            return (
-              <div key={stop.id} style={{ left: `${pt.x}%`, top: `${pt.y}%` }} className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-20">
-                <div className="relative flex flex-col items-center">
-                  <div className="w-7 h-7 rounded-full bg-[#244536] text-white flex items-center justify-center shadow-md border-2 border-white text-xs font-semibold">
-                    {idx + 1}
-                  </div>
-                  <span className="mt-1 px-2 py-0.5 rounded-md bg-white/95 text-[10px] font-medium text-[#292D2A] shadow-xs whitespace-nowrap border border-black/5">
-                    {stop.name}
-                  </span>
+        {/* Confirmed Stops */}
+        {stops.map((stop, index) => {
+          const pt = projectPoint(stop.coordinates.lat, stop.coordinates.lng);
+          const matchedPlace = candidatePlaces.find((p) => p.id === stop.placeId);
+          return (
+            <div
+              key={stop.id}
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center group cursor-pointer"
+              style={{ left: `${pt.x}%`, top: `${pt.y}%` }}
+              onClick={() => {
+                if (matchedPlace) onSelectPlace?.(matchedPlace);
+              }}
+            >
+              <div className="relative">
+                <div className="w-7 h-7 rounded-full bg-[#244536] text-white flex items-center justify-center text-xs font-medium border-2 border-white shadow-md">
+                  {index + 1}
+                </div>
+                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#759587] text-[9px] text-white font-bold flex items-center justify-center border border-white">
+                  ✓
                 </div>
               </div>
-            );
-          })}
+              <span className="mt-1 px-2 py-0.5 rounded-md bg-white/90 backdrop-blur-xs text-[10px] font-medium text-[#292D2A] border border-[#244536]/10 shadow-xs max-w-[120px] truncate">
+                {stop.name}
+              </span>
+            </div>
+          );
+        })}
 
-          {/* Candidate Places */}
+        {/* Candidate Stops Layer */}
+        <div className="absolute inset-0 pointer-events-auto">
           {candidatePlaces.map((place) => {
-            const pt = projectPoint(place.coordinates.lat, place.coordinates.lng);
             const isSelected = selectedPlace?.id === place.id;
+            const pt = projectPoint(place.coordinates.lat, place.coordinates.lng);
             const badge = HygieneService.getStatusBadge(place.hygieneStatus);
 
             return (
@@ -459,24 +383,23 @@ export function InteractiveRouteMap({
                 key={place.id}
                 type="button"
                 onClick={() => onSelectPlace?.(place)}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 focus:outline-hidden group"
                 style={{ left: `${pt.x}%`, top: `${pt.y}%` }}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-10 transition-transform duration-200 focus:outline-none ${
-                  isSelected ? 'scale-125 z-30' : 'hover:scale-110'
-                }`}
-                title={`${place.name} · ${place.category} · ${badge.label}`}
               >
-                <div className="relative flex flex-col items-center">
-                  <div className={`p-2 rounded-xl shadow-md border-2 transition-all ${
-                    isSelected ? 'bg-[#244536] text-white border-white ring-4 ring-[#244536]/30' : 'bg-white text-[#292D2A] border-[#244536]/20 hover:border-[#244536]'
-                  }`}>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs">
-                        {place.category === 'washroom' ? '🚻' :
-                         place.category === 'hotel' ? '🏨' :
-                         place.category === 'restaurant' ? '🍽️' :
-                         place.category === 'fuel' ? '⛽' : '☕'}
-                      </span>
-                      {place.hygieneScore && (
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`relative p-1.5 rounded-full transition-all duration-200 border-2 ${
+                      isSelected
+                        ? 'bg-[#244536] text-white border-white scale-125 shadow-lg z-20'
+                        : 'bg-white text-[#244536] border-[#244536]/30 hover:scale-110 shadow-sm'
+                    }`}
+                  >
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      {place.category === 'washroom' ? (
+                        <span className="text-[10px]">🚻</span>
+                      ) : place.category === 'hotel' ? (
+                        <span className="text-[10px]">🏨</span>
+                      ) : (
                         <span className="text-[10px] font-bold text-[#244536]">
                           {place.hygieneScore}
                         </span>
