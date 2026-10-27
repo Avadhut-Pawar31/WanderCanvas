@@ -1,312 +1,102 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Compass, MapPin, TrendingUp, Star, ArrowRight, Heart, Search, ShieldCheck, Sparkles, Filter, X } from 'lucide-react';
+import { 
+  Compass, 
+  MapPin, 
+  Star, 
+  ArrowRight, 
+  Heart, 
+  Search, 
+  ShieldCheck, 
+  Sparkles, 
+  Globe, 
+  ChevronRight, 
+  ChevronDown,
+  ArrowLeft,
+  X,
+  Layers,
+  Building2,
+  TreePine,
+  Landmark,
+  UtensilsCrossed,
+  Palette,
+  MountainSnow,
+  Car
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { ExploreService } from '@/services/exploreService';
+import { ContinentId, CountryCategory, Country } from '@/types/geography';
 
-interface Destination {
-  name: string;
-  state: string;
-  region: string;
-  macroRegion: 'Western Ghats & Konkan' | 'Himalayas & Valleys' | 'Kerala & Southern Trails' | 'Rajasthan & Heritage' | 'Northeast & Living Roots';
-  rating: number;
-  reviews: number;
-  category: 'Coastal & Beaches' | 'Mountain Passes' | 'Heritage & Forts' | 'Eco & Cleanest Villages' | 'Tea & Spice Plantations';
-  hygieneScore: number;
-  hygieneStatus: string;
-  bestSeason: string;
-  image: string;
-  description: string;
-  highlights: string[];
-}
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=85';
 
-export default function ExplorePage() {
+function ExploreContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Navigation state (Nested Hierarchy: Continent -> Country -> Administrative Subdivision)
+  const [expandedContinentId, setExpandedContinentId] = useState<ContinentId | null>('asia');
+  const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null);
+  const [selectedSubdivisionId, setSelectedSubdivisionId] = useState<string | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<CountryCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMacroRegion, setSelectedMacroRegion] = useState<string>('All India');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [savedNames, setSavedNames] = useState<string[]>([]);
 
-  const macroRegions = [
-    'All India',
-    'Western Ghats & Konkan',
-    'Himalayas & Valleys',
-    'Kerala & Southern Trails',
-    'Rajasthan & Heritage',
-    'Northeast & Living Roots',
-  ];
+  // Initialize search from URL query parameter (e.g. from Navbar search or direct links)
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) {
+      setSearchQuery(q);
+      setSelectedCountryId(null);
+      setSelectedSubdivisionId('all');
+      setSelectedCategory('all');
+    }
+  }, [searchParams]);
 
-  const categories = [
-    'All',
-    'Coastal & Beaches',
-    'Mountain Passes',
-    'Heritage & Forts',
-    'Eco & Cleanest Villages',
-    'Tea & Spice Plantations',
-  ];
+  // Metadata retrieval
+  const continents = useMemo(() => ExploreService.getContinents(), []);
+  
+  const activeCountry = useMemo(() => {
+    if (!selectedCountryId) return null;
+    return ExploreService.getCountryById(selectedCountryId);
+  }, [selectedCountryId]);
 
-  const destinations: Destination[] = [
-    {
-      name: 'Alibaug & Kashid Coastal Corridor',
-      state: 'Maharashtra',
-      region: 'Konkan Coastline',
-      macroRegion: 'Western Ghats & Konkan',
-      rating: 4.8,
-      reviews: 2410,
-      category: 'Coastal & Beaches',
-      hygieneScore: 94,
-      hygieneStatus: 'Audited Beach Amenities',
-      bestSeason: 'Oct - March',
-      image: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?w=800&q=85',
-      description: 'Pristine coastal drive from Mumbai/Pune along swaying betel nut orchards, sea-fort Kolaba, and inspected highway restroom plazas.',
-      highlights: ['Revdanda Beach', 'Murud Janjira Sea Fort', 'Fresh Coastal Kokum Stalls'],
-    },
-    {
-      name: 'Mahabaleshwar & Kaas Plateau',
-      state: 'Maharashtra',
-      region: 'Western Ghats (Sahyadri)',
-      macroRegion: 'Western Ghats & Konkan',
-      rating: 4.9,
-      reviews: 3120,
-      category: 'Mountain Passes',
-      hygieneScore: 96,
-      hygieneStatus: 'Officially Inspected Hill Plazas',
-      bestSeason: 'Aug - Feb',
-      image: 'https://images.unsplash.com/photo-1626014303757-646654271373?w=800&q=85',
-      description: 'Misty plateau ridges, strawberry garden trails, and UNESCO World Natural Heritage flower carpets with verified rest stops on Pasarni Ghat.',
-      highlights: ['Kaas Valley of Flowers', 'Arthur Seat Ridge', 'Venna Lake Walkways'],
-    },
-    {
-      name: 'Lonavala, Khandala & Duke’s Nose',
-      state: 'Maharashtra',
-      region: 'Sahyadri Corridor',
-      macroRegion: 'Western Ghats & Konkan',
-      rating: 4.7,
-      reviews: 4200,
-      category: 'Mountain Passes',
-      hygieneScore: 92,
-      hygieneStatus: 'Verified Expressway Amenities',
-      bestSeason: 'July - Feb',
-      image: 'https://images.unsplash.com/photo-1609137144822-261546b3f71c?w=800&q=85',
-      description: 'Famous Mumbai-Pune expressway mountain route with heritage Buddhist rock-cut caves, waterfall viewpoints, and ISO-certified food courts.',
-      highlights: ['Karla & Bhaja Caves', 'Rajmachi Fort View', 'Expressway Food Plazas'],
-    },
-    {
-      name: 'South Goa & Palolem Sanctuary',
-      state: 'Goa',
-      region: 'Konkan Coastal Belt',
-      macroRegion: 'Western Ghats & Konkan',
-      rating: 4.9,
-      reviews: 3840,
-      category: 'Coastal & Beaches',
-      hygieneScore: 95,
-      hygieneStatus: 'High Sanitation Standards',
-      bestSeason: 'Nov - April',
-      image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800&q=85',
-      description: 'Crescent-shaped serene golden sands, eco-beach huts, spice plantations, and immaculately maintained coastal boutique cafes.',
-      highlights: ['Palolem & Butterfly Beach', 'Cotigao Wildlife Sanctuary', 'Portuguese Heritage Villas'],
-    },
-    {
-      name: 'Spiti Valley & Kaza High Pass',
-      state: 'Himachal Pradesh',
-      region: 'Trans-Himalayan Cold Desert',
-      macroRegion: 'Himalayas & Valleys',
-      rating: 4.9,
-      reviews: 1650,
-      category: 'Mountain Passes',
-      hygieneScore: 90,
-      hygieneStatus: 'Eco-Community Verified',
-      bestSeason: 'May - Oct',
-      image: 'https://images.unsplash.com/photo-1598091383021-15ddea10925d?w=800&q=85',
-      description: 'Dramatic high-altitude mountain desert roads, ancient millennium-old Key Monastery, and pristine high-altitude fossil villages.',
-      highlights: ['Key Gompa', 'Chicham Highest Suspension Bridge', 'Chandratal Moon Lake'],
-    },
-    {
-      name: 'Manali to Solang & Rohtang Corridor',
-      state: 'Himachal Pradesh',
-      region: 'Kullu Valley',
-      macroRegion: 'Himalayas & Valleys',
-      rating: 4.8,
-      reviews: 4500,
-      category: 'Mountain Passes',
-      hygieneScore: 93,
-      hygieneStatus: 'BRO & Highway Verified',
-      bestSeason: 'Sept - June',
-      image: 'https://images.unsplash.com/photo-1593181629936-11c609b8db9b?w=800&q=85',
-      description: 'Snow-capped Pir Panjal peaks, cedar forests along the Beas River, Atal Tunnel marvel, and audited highway rest points.',
-      highlights: ['Atal Tunnel Corridor', 'Old Manali Apple Orchards', 'Solang Valley Adventure'],
-    },
-    {
-      name: 'Rishikesh to Devprayag Sangam',
-      state: 'Uttarakhand',
-      region: 'Garhwal Himalayas',
-      macroRegion: 'Himalayas & Valleys',
-      rating: 4.9,
-      reviews: 3200,
-      category: 'Mountain Passes',
-      hygieneScore: 94,
-      hygieneStatus: 'Clean Ganga Mission Verified',
-      bestSeason: 'Sept - April',
-      image: 'https://images.unsplash.com/photo-1588668214407-6ea9a6d8c272?w=800&q=85',
-      description: 'Emerald holy rivers cutting through Himalayan foothills, yoga ashrams, suspension bridges, and eco-certified riverside retreats.',
-      highlights: ['Laxman Jhula Promenade', 'Devprayag River Confluence', 'Beatles Ashram'],
-    },
-    {
-      name: 'Mawlynnong & Living Root Bridges',
-      state: 'Meghalaya',
-      region: 'East Khasi Hills',
-      macroRegion: 'Northeast & Living Roots',
-      rating: 5.0,
-      reviews: 1980,
-      category: 'Eco & Cleanest Villages',
-      hygieneScore: 100,
-      hygieneStatus: 'Declared Asia’s Cleanest Village',
-      bestSeason: 'Sept - May',
-      image: 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?w=800&q=85',
-      description: 'Celebrated as Asia’s cleanest village with 100% bamboo dustbins, living root bridges woven from rubber trees, and pristine crystal streams.',
-      highlights: ['Single Living Root Bridge', 'Umngot River at Dawki', 'Balancing Rock Wonder'],
-    },
-    {
-      name: 'Alleppey & Vembanad Backwaters',
-      state: 'Kerala',
-      region: 'Kuttanad Waterways',
-      macroRegion: 'Kerala & Southern Trails',
-      rating: 4.9,
-      reviews: 4100,
-      category: 'Coastal & Beaches',
-      hygieneScore: 97,
-      hygieneStatus: 'Kerala Tourism Gold Audited',
-      bestSeason: 'Sept - March',
-      image: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=800&q=85',
-      description: 'Labyrinth of palm-fringed canals, eco houseboats with private certified chefs, and village homestays serving warm banana leaf feasts.',
-      highlights: ['Luxury Houseboat Cruises', 'Punnamada Lake Regatta', 'Marari Fishermen Beach'],
-    },
-    {
-      name: 'Munnar & Anamalai Tea Estates',
-      state: 'Kerala',
-      region: 'Idukki Western Ghats',
-      macroRegion: 'Kerala & Southern Trails',
-      rating: 4.9,
-      reviews: 3600,
-      category: 'Tea & Spice Plantations',
-      hygieneScore: 96,
-      hygieneStatus: 'Estate Hygiene Certified',
-      bestSeason: 'Aug - May',
-      image: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?w=800&q=85',
-      description: 'Endless rolling emerald carpet hills, crisp mountain air, cardamom spice gardens, and colonial tea factory museums.',
-      highlights: ['Kolukkumalai Sunrise (World Highest Tea Estate)', 'Eravikulam Tahr Sanctuary', 'Mattupetty Dam'],
-    },
-    {
-      name: 'Coorg & Madikeri Coffee Trails',
-      state: 'Karnataka',
-      region: 'Kodagu Highlands',
-      macroRegion: 'Kerala & Southern Trails',
-      rating: 4.8,
-      reviews: 2890,
-      category: 'Tea & Spice Plantations',
-      hygieneScore: 95,
-      hygieneStatus: 'High Cleanliness Standards',
-      bestSeason: 'Oct - April',
-      image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=800&q=85',
-      description: 'Aromatic Arabica and Robusta plantations, cascading Abbey Falls, Tibetan settlement in Bylakuppe, and Kodava hospitality.',
-      highlights: ['Namdroling Golden Temple', 'Abbey Falls Gorge', 'Raja’s Seat Sunset View'],
-    },
-    {
-      name: 'Udaipur & Mewar Lake Corridors',
-      state: 'Rajasthan',
-      region: 'Mewar Kingdom',
-      macroRegion: 'Rajasthan & Heritage',
-      rating: 4.9,
-      reviews: 4800,
-      category: 'Heritage & Forts',
-      hygieneScore: 96,
-      hygieneStatus: 'Heritage Hotel Hygiene Guild',
-      bestSeason: 'Oct - March',
-      image: 'https://images.unsplash.com/photo-1615836245337-f5b9b2303f10?w=800&q=85',
-      description: 'City of Lakes boasting floating marble palaces, historic City Palace courtyards, and scenic Aravali mountain highway approaches.',
-      highlights: ['City Palace Complex', 'Lake Pichola Boat Promenade', 'Sajjangarh Monsoon Palace'],
-    },
-    {
-      name: 'Jaipur & Amber Fort Royal Ridge',
-      state: 'Rajasthan',
-      region: 'Dhundhar Corridor',
-      macroRegion: 'Rajasthan & Heritage',
-      rating: 4.8,
-      reviews: 5200,
-      category: 'Heritage & Forts',
-      hygieneScore: 94,
-      hygieneStatus: 'Smart City Verified',
-      bestSeason: 'Oct - March',
-      image: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800&q=85',
-      description: 'The UNESCO Pink City with sandstone palaces, astronomical observatory Jantar Mantar, and hilltop fortifications overlooking Maota Lake.',
-      highlights: ['Amber Fort Mirrors Gallery', 'Hawa Mahal Windows', 'Nahargarh Sunset Ridge'],
-    },
-    {
-      name: 'Hampi Vijayanagara Empire Ruins',
-      state: 'Karnataka',
-      region: 'Tungabhadra Valley',
-      macroRegion: 'Rajasthan & Heritage',
-      rating: 4.9,
-      reviews: 2950,
-      category: 'Heritage & Forts',
-      hygieneScore: 93,
-      hygieneStatus: 'ASI & UNESCO Maintained',
-      bestSeason: 'Oct - March',
-      image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800&q=85',
-      description: 'Surreal boulder-strewn landscape hosting the 14th-century capital of the Vijayanagara Empire along the ancient Tungabhadra River.',
-      highlights: ['Stone Chariot at Vittala Temple', 'Virupaksha Temple', 'Matanga Hill Sunrise'],
-    },
-    {
-      name: 'Gokarna & Kudle Coastal Trail',
-      state: 'Karnataka',
-      region: 'Uttara Kannada',
-      macroRegion: 'Western Ghats & Konkan',
-      rating: 4.8,
-      reviews: 2150,
-      category: 'Coastal & Beaches',
-      hygieneScore: 93,
-      hygieneStatus: 'Clean Coastline Certified',
-      bestSeason: 'Oct - March',
-      image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=800&q=85',
-      description: 'Cliffside coastal hiking paths linking secluded beaches shaped like the sacred Om symbol, offering peaceful coastal cafes.',
-      highlights: ['Om Beach Viewpoint', 'Half Moon Beach Cliff Hike', 'Mahabaleshwar Temple Shrine'],
-    },
-  ];
+  const activeContinent = useMemo(() => {
+    if (activeCountry) {
+      return ExploreService.getContinentById(activeCountry.continentId);
+    }
+    if (expandedContinentId) {
+      return ExploreService.getContinentById(expandedContinentId);
+    }
+    return null;
+  }, [activeCountry, expandedContinentId]);
 
-  // Real-time multi-dimensional filter
+  // Filtered destinations for the active country/continent view
   const filteredDestinations = useMemo(() => {
-    return destinations.filter((dest) => {
-      // 1. Text search across name, state, region, description, highlights
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = dest.name.toLowerCase().includes(q);
-        const matchesState = dest.state.toLowerCase().includes(q);
-        const matchesRegion = dest.region.toLowerCase().includes(q);
-        const matchesDesc = dest.description.toLowerCase().includes(q);
-        const matchesHighlight = dest.highlights.some(h => h.toLowerCase().includes(q));
-
-        if (!matchesName && !matchesState && !matchesRegion && !matchesDesc && !matchesHighlight) {
-          return false;
-        }
-      }
-
-      // 2. Macro Region Filter
-      if (selectedMacroRegion !== 'All India' && dest.macroRegion !== selectedMacroRegion) {
-        return false;
-      }
-
-      // 3. Category Filter
-      if (selectedCategory !== 'All' && dest.category !== selectedCategory) {
-        return false;
-      }
-
-      return true;
+    return ExploreService.getDestinations({
+      continentId: activeCountry ? activeCountry.continentId : (expandedContinentId || undefined),
+      countryId: selectedCountryId || undefined,
+      subdivisionId: selectedSubdivisionId,
+      category: selectedCategory,
+      searchQuery: searchQuery.trim() || undefined,
     });
-  }, [searchQuery, selectedMacroRegion, selectedCategory, destinations]);
+  }, [activeCountry, expandedContinentId, selectedCountryId, selectedSubdivisionId, selectedCategory, searchQuery]);
 
+  // Global search destinations across all continents when search query is typed
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    return ExploreService.getDestinations({
+      searchQuery: searchQuery.trim(),
+    });
+  }, [searchQuery]);
+
+  // Global derived stats
+  const stats = useMemo(() => ExploreService.getStats(), []);
+
+  // Save / Bookmark handler
   const toggleSave = (name: string) => {
     const exists = savedNames.includes(name);
     if (exists) {
@@ -318,240 +108,839 @@ export default function ExplorePage() {
     }
   };
 
+  // Category Icon helper
+  const getCategoryIcon = (cat: CountryCategory) => {
+    switch (cat) {
+      case 'regions-cities': return <Building2 className="w-3.5 h-3.5" />;
+      case 'natural-attractions': return <TreePine className="w-3.5 h-3.5" />;
+      case 'heritage-history': return <Landmark className="w-3.5 h-3.5" />;
+      case 'regional-cuisine': return <UtensilsCrossed className="w-3.5 h-3.5" />;
+      case 'arts-architecture': return <Palette className="w-3.5 h-3.5" />;
+      case 'adventure-outdoors': return <MountainSnow className="w-3.5 h-3.5" />;
+      case 'road-trips': return <Car className="w-3.5 h-3.5" />;
+      default: return <Compass className="w-3.5 h-3.5" />;
+    }
+  };
+
+  // All destinations for the currently selected country
+  const countryDestinations = useMemo(() => {
+    if (!selectedCountryId) return [];
+    return ExploreService.getDestinations({ countryId: selectedCountryId });
+  }, [selectedCountryId]);
+
+  // Destinations within the current subdivision scope
+  const activeScopeDestinations = useMemo(() => {
+    if (!selectedCountryId) return [];
+    if (selectedSubdivisionId === 'all') return countryDestinations;
+    return countryDestinations.filter((d) => d.subdivisionId === selectedSubdivisionId);
+  }, [countryDestinations, selectedCountryId, selectedSubdivisionId]);
+
+  const handleSubdivisionSelect = (subId: string) => {
+    setSelectedSubdivisionId(subId);
+    if (selectedCategory !== 'all') {
+      const exists = countryDestinations.some(
+        (d) => (subId === 'all' || d.subdivisionId === subId) && d.category === selectedCategory
+      );
+      if (!exists) {
+        setSelectedCategory('all');
+      }
+    }
+  };
+
+  const handleContinentToggle = (continentId: ContinentId) => {
+    if (expandedContinentId === continentId) {
+      setExpandedContinentId(null);
+    } else {
+      setExpandedContinentId(continentId);
+    }
+  };
+
+  const handleSelectCountry = (country: Country) => {
+    setSelectedCountryId(country.id);
+    setExpandedContinentId(country.continentId);
+    setSelectedSubdivisionId('all');
+    setSelectedCategory('all');
+    setSearchQuery('');
+  };
+
+  const handleBackToCatalogue = () => {
+    setSelectedCountryId(null);
+    setSelectedSubdivisionId('all');
+    setSelectedCategory('all');
+  };
+
   return (
     <main className="min-h-screen bg-[#F7F5EF] text-[#292D2A] pb-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Header Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8 pb-6 border-b border-[#244536]/10"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#244536]/10 border border-[#244536]/15">
-              <Compass className="w-3.5 h-3.5 text-[#244536]" />
-              <span className="text-xs font-mono uppercase tracking-wider text-[#244536] font-semibold">
-                Incredible India Corridors &amp; Local Regions
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs font-mono text-[#244536]">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Real-Time Regional Registry ({filteredDestinations.length} available)</span>
-            </div>
-          </div>
-
-          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#244536] tracking-tight">
-            Explore Indian Destinations &amp; Hidden Circuits
-          </h1>
-          <p className="text-sm sm:text-base text-[#292D2A]/70 mt-2 max-w-3xl leading-relaxed">
-            From the misty Western Ghats and Konkan coastline of Maharashtra to the high Himalayan passes, royal Mewar palaces, and Asia’s cleanest eco-villages. All vetted with verified travel and hygiene intelligence.
-          </p>
-
-          {/* Real-Time Live Search Bar */}
-          <div className="mt-6 relative max-w-2xl">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#244536]/50 pointer-events-none">
-              <Search className="w-4 h-4" />
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by state (Maharashtra, Kerala, HP), region (Konkan, Ghats, Spiti), or place..."
-              className="w-full pl-11 pr-10 py-3 bg-white rounded-2xl border border-[#244536]/20 text-sm text-[#292D2A] placeholder:text-[#5F6761]/60 focus:outline-hidden focus:border-[#244536] focus:ring-2 focus:ring-[#244536]/15 transition shadow-xs"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[#5F6761]/60 hover:text-[#292D2A]"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Macro Region Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pt-6 pb-2 scrollbar-none">
-            {macroRegions.map((region) => (
-              <button
-                key={region}
-                onClick={() => setSelectedMacroRegion(region)}
-                className={`px-4 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
-                  selectedMacroRegion === region
-                    ? 'bg-[#244536] text-white font-semibold shadow-xs'
-                    : 'bg-white text-[#292D2A]/70 border border-[#244536]/10 hover:text-[#244536] hover:bg-[#244536]/5'
-                }`}
-              >
-                {region}
-              </button>
-            ))}
-          </div>
-
-          {/* Sub-Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-2 pb-1 scrollbar-none">
-            <span className="text-[11px] font-mono uppercase text-[#5F6761]/70 mr-1 flex items-center gap-1">
-              <Filter className="w-3 h-3" />
-              Category:
-            </span>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === cat
-                    ? 'bg-[#C78363] text-white font-semibold'
-                    : 'bg-[#F0F3EF] text-[#244536] hover:bg-[#244536]/10'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Section Title & Live Results Count */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#C78363]" />
-            <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#292D2A]">
-              {selectedMacroRegion === 'All India' ? 'Featured Indian Circuits' : selectedMacroRegion}
-            </h2>
-          </div>
-          <span className="text-xs font-mono text-[#5F6761]">
-            {filteredDestinations.length} {filteredDestinations.length === 1 ? 'place' : 'places'} found
-          </span>
-        </div>
-
-        {/* Empty State */}
-        {filteredDestinations.length === 0 && (
-          <div className="p-12 text-center bg-white rounded-3xl border border-[#244536]/15 space-y-3">
-            <Compass className="w-8 h-8 text-[#C78363] mx-auto animate-bounce" />
-            <h3 className="font-serif text-lg font-medium text-[#244536]">No destinations matched your search</h3>
-            <p className="text-xs text-[#5F6761] max-w-sm mx-auto">
-              Try searching for &quot;Maharashtra&quot;, &quot;Konkan&quot;, &quot;Spiti&quot;, &quot;Kerala&quot;, or reset your filters.
-            </p>
+      {/* ------------------------------------------------------------------------ */}
+      {/* HEADER & BREADCRUMB NAVIGATION */}
+      {/* ------------------------------------------------------------------------ */}
+      <section className="bg-white border-b border-[#244536]/10 py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-4">
+          {/* Breadcrumb Path */}
+          <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-2 text-xs font-mono text-[#5F6761]">
             <button
+              type="button"
               onClick={() => {
+                setSelectedCountryId(null);
+                setSelectedSubdivisionId('all');
+                setSelectedCategory('all');
                 setSearchQuery('');
-                setSelectedMacroRegion('All India');
-                setSelectedCategory('All');
               }}
-              className="mt-2 px-4 py-2 bg-[#244536] text-white rounded-xl text-xs font-medium"
+              className="hover:text-[#244536] transition flex items-center gap-1.5 font-medium"
             >
-              Reset Filters
+              <Globe className="w-3.5 h-3.5 text-[#244536]" />
+              <span>Explore Catalogue</span>
             </button>
-          </div>
-        )}
 
-        {/* Destinations Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDestinations.map((destination, index) => {
-            const isSaved = savedNames.includes(destination.name);
-            return (
-              <motion.div
-                key={destination.name}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.05 }}
-                className="group bg-white rounded-2xl border border-[#244536]/10 hover:border-[#244536]/30 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
-              >
+            {activeContinent && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-[#5F6761]/40" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCountryId(null);
+                    setSelectedSubdivisionId('all');
+                    setSelectedCategory('all');
+                    setExpandedContinentId(activeContinent.id);
+                  }}
+                  className={`hover:text-[#244536] transition font-medium ${
+                    !activeCountry ? 'text-[#244536] font-bold' : ''
+                  }`}
+                >
+                  {activeContinent.name}
+                </button>
+              </>
+            )}
+
+            {activeCountry && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-[#5F6761]/40" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubdivisionId('all');
+                    setSelectedCategory('all');
+                  }}
+                  className={`hover:text-[#244536] transition font-medium ${
+                    selectedSubdivisionId === 'all' ? 'text-[#244536] font-bold' : ''
+                  }`}
+                >
+                  {activeCountry.flag} {activeCountry.name} ({activeCountry.isoCode})
+                </button>
+              </>
+            )}
+
+            {activeCountry && selectedSubdivisionId !== 'all' && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-[#5F6761]/40" />
+                <span className="text-[#244536] font-bold">
+                  {activeCountry.subdivisions.find((s) => s.id === selectedSubdivisionId)?.name || selectedSubdivisionId}
+                </span>
+              </>
+            )}
+          </nav>
+
+          {/* Dynamic Editorial Title & Search */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              {activeCountry ? (
                 <div>
-                  {/* Photo Container */}
-                  <div className="relative h-56 w-full overflow-hidden bg-[#E7ECE5]">
-                    <img
-                      src={destination.image}
-                      alt={destination.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                    />
-
-                    {/* Bookmark Heart */}
-                    <button
-                      onClick={() => toggleSave(destination.name)}
-                      className="absolute top-3.5 right-3.5 p-2 bg-white/90 backdrop-blur-md rounded-xl text-[#292D2A]/60 hover:text-[#C78363] hover:bg-white shadow-xs transition"
-                      title={isSaved ? 'Remove from saved' : 'Save destination'}
-                    >
-                      <Heart className={`w-4 h-4 ${isSaved ? 'fill-[#C78363] text-[#C78363]' : ''}`} />
-                    </button>
-
-                    {/* Category & State Tag */}
-                    <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
-                      <span className="px-2.5 py-1 bg-[#244536]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
-                        {destination.category}
-                      </span>
-                      <span className="px-2 py-1 bg-[#C78363]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
-                        {destination.state}
-                      </span>
-                    </div>
-
-                    {/* Hygiene Score Pill */}
-                    <div className="absolute top-3.5 left-3.5 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl border border-[#244536]/15 shadow-sm flex items-center gap-1 text-[11px] font-bold text-[#244536]">
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#244536]" />
-                      <span>{destination.hygieneScore}/100</span>
-                    </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#244536]/10 text-[#244536] text-xs font-mono uppercase tracking-wider mb-2">
+                    <span>{activeCountry.flag}</span>
+                    <span>{activeCountry.continentId.toUpperCase()} • ISO {activeCountry.isoCode} • {activeCountry.capital}</span>
                   </div>
+                  <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#244536]">
+                    {activeCountry.name}
+                  </h1>
+                  <p className="text-sm sm:text-base text-[#5F6761] mt-1.5 max-w-2xl leading-relaxed">
+                    {activeCountry.description}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#244536]/10 text-[#244536] text-xs font-mono uppercase tracking-wider mb-2">
+                    <Sparkles className="w-3.5 h-3.5 text-[#C78363]" />
+                    <span>Nested Geographic Catalogue</span>
+                  </div>
+                  <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#244536] tracking-tight">
+                    Explore the World by Continent &amp; Country
+                  </h1>
+                  <p className="text-sm sm:text-base text-[#5F6761] mt-1.5 max-w-2xl leading-relaxed">
+                    A balanced global travel discovery system. Discover world wonders like the Taj Mahal, Eiffel Tower, and Colosseum, alongside authentic local hill circuits and cultural sanctuaries.
+                  </p>
+                </div>
+              )}
+            </div>
 
-                  {/* Body Info */}
-                  <div className="p-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-serif text-lg font-bold text-[#292D2A] group-hover:text-[#244536] transition-colors line-clamp-1">
-                          {destination.name}
-                        </h3>
-                        <div className="flex items-center gap-1.5 text-xs text-[#292D2A]/60 mt-0.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#C78363] shrink-0" />
-                          <span className="truncate">{destination.region}, {destination.state}</span>
+            {/* Global Search Bar */}
+            <div className="relative w-full md:w-96">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#244536]/50 pointer-events-none">
+                <Search className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Eiffel, Taj Mahal, Mahabaleshwar, 7 Wonders..."
+                className="w-full pl-10 pr-9 py-2.5 bg-[#F7F5EF] rounded-xl border border-[#244536]/15 text-xs text-[#292D2A] placeholder:text-[#5F6761]/60 focus:outline-hidden focus:border-[#244536] focus:bg-white transition shadow-xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#5F6761]/60 hover:text-[#292D2A]"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Trending Discovery Quick Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-[#244536]/8">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#5F6761] mr-1 font-semibold">
+              Popular Circuits:
+            </span>
+            {[
+              { label: '🏛️ The 7 Wonders', query: '7 Wonders' },
+              { label: '🗼 Eiffel Tower', query: 'Eiffel Tower' },
+              { label: '🕌 Taj Mahal', query: 'Taj Mahal' },
+              { label: '🍓 Mahabaleshwar', query: 'Mahabaleshwar' },
+              { label: '🏺 Colosseum', query: 'Colosseum' },
+              { label: '🪨 Petra', query: 'Petra' },
+              { label: '⛰️ Machu Picchu', query: 'Machu Picchu' },
+              { label: '🧗 Mont Blanc', query: 'Mont Blanc' },
+              { label: '🌿 Living Root Bridges', query: 'Living Root Bridge' },
+              { label: '🎭 Regional Heritage', query: 'heritage' },
+            ].map((pill) => (
+              <button
+                key={pill.query}
+                type="button"
+                onClick={() => {
+                  setSelectedCountryId(null);
+                  setSelectedSubdivisionId('all');
+                  setSelectedCategory('all');
+                  setSearchQuery(pill.query);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                  searchQuery.toLowerCase() === pill.query.toLowerCase()
+                    ? 'bg-[#244536] text-white font-semibold shadow-xs'
+                    : 'bg-[#F7F5EF] text-[#244536] hover:bg-[#244536]/10 border border-[#244536]/10'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------------ */}
+      {/* SEARCH RESULTS VIEW (When query is active) */}
+      {/* ------------------------------------------------------------------------ */}
+      {searchQuery.trim() ? (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#244536]">
+              Search Results for &ldquo;{searchQuery}&rdquo;
+            </h2>
+            <span className="text-xs font-mono text-[#5F6761]">
+              {searchResults.length} {searchResults.length === 1 ? 'place' : 'places'} found
+            </span>
+          </div>
+
+          {searchResults.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-3xl border border-[#244536]/15 space-y-4">
+              <Compass className="w-8 h-8 text-[#C78363] mx-auto animate-bounce" />
+              <h3 className="font-serif text-lg font-medium text-[#244536]">No destinations matched &ldquo;{searchQuery}&rdquo;</h3>
+              <p className="text-xs text-[#5F6761] max-w-md mx-auto">
+                Try searching for world icons and regional highlights:
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                {['Eiffel Tower', 'Taj Mahal', 'Mahabaleshwar', 'Colosseum', 'Machu Picchu', 'Petra', 'Great Wall', 'Zermatt'].map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => setSearchQuery(term)}
+                    className="px-3 py-1 bg-[#F7F5EF] hover:bg-[#244536] hover:text-white text-[#244536] rounded-lg text-xs font-mono transition"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-3 px-4 py-2 bg-[#244536] text-white rounded-xl text-xs font-medium"
+                >
+                  Clear Search Query
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {searchResults.map((destination) => {
+                const isSaved = savedNames.includes(destination.name);
+                const country = ExploreService.getCountryById(destination.countryId);
+                const subdivision = country?.subdivisions.find((s) => s.id === destination.subdivisionId);
+
+                return (
+                  <motion.div
+                    key={destination.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="group bg-white rounded-2xl border border-[#244536]/10 hover:border-[#244536]/30 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="relative h-52 w-full overflow-hidden bg-[#E7ECE5]">
+                        <img
+                          src={destination.image}
+                          alt={destination.name}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                          }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleSave(destination.name)}
+                          className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-md rounded-xl text-[#292D2A]/60 hover:text-[#C78363] hover:bg-white shadow-xs transition"
+                          title={isSaved ? 'Remove from saved' : 'Save destination'}
+                        >
+                          <Heart className={`w-4 h-4 ${isSaved ? 'fill-[#C78363] text-[#C78363]' : ''}`} />
+                        </button>
+                        <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl border border-[#244536]/15 shadow-sm flex items-center gap-1 text-[11px] font-bold text-[#244536]">
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#244536]" />
+                          <span>{destination.hygieneScore}/100</span>
+                        </div>
+                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 flex-wrap">
+                          {country && (
+                            <span className="px-2 py-0.5 bg-[#C78363]/95 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
+                              {country.flag} {country.name}
+                            </span>
+                          )}
+                          {subdivision && (
+                            <span className="px-2 py-0.5 bg-[#244536]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
+                              {subdivision.name}
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Rating */}
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-200/60 text-amber-800 text-xs font-semibold shrink-0">
-                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                        <span>{destination.rating}</span>
+                      <div className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-serif text-base font-bold text-[#292D2A] group-hover:text-[#244536] transition-colors line-clamp-1">
+                            {destination.name}
+                          </h3>
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded-md border border-amber-200/60 text-amber-800 text-[11px] font-semibold shrink-0">
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                            <span>{destination.rating}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
+                          {destination.description}
+                        </p>
                       </div>
                     </div>
 
-                    <p className="text-xs text-[#292D2A]/70 line-clamp-2 leading-relaxed">
-                      {destination.description}
-                    </p>
-
-                    {/* Season & Verification Status */}
-                    <div className="flex items-center justify-between text-[11px] pt-1 text-[#5F6761]">
-                      <span>Best time: <strong className="text-[#244536]">{destination.bestSeason}</strong></span>
-                      <span className="text-emerald-700 font-medium">✓ {destination.hygieneStatus}</span>
+                    <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (country) {
+                            handleSelectCountry(country);
+                            if (subdivision) {
+                              setSelectedSubdivisionId(subdivision.id);
+                            }
+                            setSearchQuery('');
+                          }
+                        }}
+                        className="text-xs font-mono text-[#244536] hover:underline"
+                      >
+                        Explore {country?.name || 'Country'}
+                      </button>
+                      <Button
+                        onClick={() => router.push(`/home?destination=${encodeURIComponent(destination.name)}`)}
+                        className="bg-[#244536] text-white hover:bg-[#1B3529] rounded-xl px-3 py-1 text-xs font-medium gap-1 shadow-xs"
+                      >
+                        <span>Plan Route</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </Button>
                     </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      ) : activeCountry ? (
+        /* ------------------------------------------------------------------------ */
+        /* LEVEL 3 & 4: DEDICATED COUNTRY LEVEL DISCOVERY WORKSPACE */
+        /* ------------------------------------------------------------------------ */
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
+          {/* Back button & Country Status Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleBackToCatalogue}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-[#244536]/15 hover:border-[#244536] text-xs font-medium text-[#244536] transition shadow-xs self-start"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to {activeContinent?.name || 'Continent'}</span>
+            </button>
 
-                    {/* Highlights */}
-                    <div className="pt-2 border-t border-[#244536]/8 flex flex-wrap gap-1.5">
-                      {destination.highlights.map((h) => (
-                        <span key={h} className="text-[10px] px-2 py-0.5 bg-[#F7F5EF] text-[#244536] rounded-md font-mono">
-                          {h}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <div className="flex items-center gap-4 text-xs font-mono text-[#5F6761]">
+              <span>Currency: <strong className="text-[#244536]">{activeCountry.currency}</strong></span>
+              <span>•</span>
+              <span>Capital: <strong className="text-[#244536]">{activeCountry.capital}</strong></span>
+              <span>•</span>
+              <span>ISO: <strong className="text-[#244536]">{activeCountry.isoCode}</strong></span>
+            </div>
+          </div>
 
-                {/* Card Action */}
-                <div className="px-5 py-3.5 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between gap-3">
-                  <div className="text-[11px] text-[#292D2A]/50 font-mono">
-                    {destination.reviews.toLocaleString()} reviews
-                  </div>
+          {/* Level 3: Administrative Subdivisions Bar */}
+          <div className="bg-white rounded-3xl border border-[#244536]/15 p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-mono uppercase tracking-wider text-[#244536] font-bold flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#C78363]" />
+                <span>{activeCountry.subdivisionLabel} ({activeCountry.subdivisions.length})</span>
+              </h2>
+              {selectedSubdivisionId !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => handleSubdivisionSelect('all')}
+                  className="text-xs text-[#C78363] hover:underline"
+                >
+                  Show All {activeCountry.subdivisionLabel}
+                </button>
+              )}
+            </div>
 
-                  <Button
-                    onClick={() => router.push(`/home?destination=${encodeURIComponent(destination.name)}`)}
-                    className="bg-[#244536] text-white hover:bg-[#1B3529] rounded-xl px-4 py-1.5 text-xs font-medium gap-1.5 shadow-xs"
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => handleSubdivisionSelect('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  selectedSubdivisionId === 'all'
+                    ? 'bg-[#244536] text-white font-semibold shadow-xs'
+                    : 'bg-[#F7F5EF] text-[#292D2A] hover:bg-[#244536]/10'
+                }`}
+              >
+                <span>All {activeCountry.name}</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                  selectedSubdivisionId === 'all' ? 'bg-white/20' : 'bg-black/5'
+                }`}>
+                  {countryDestinations.length}
+                </span>
+              </button>
+
+              {activeCountry.subdivisions.map((sub) => {
+                const isSelected = selectedSubdivisionId === sub.id;
+                const subCount = countryDestinations.filter((d) => d.subdivisionId === sub.id).length;
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => handleSubdivisionSelect(sub.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-[#244536] text-white font-semibold shadow-xs'
+                        : 'bg-[#F7F5EF] text-[#292D2A] hover:bg-[#244536]/10'
+                    }`}
                   >
-                    <span>Plan Route</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
+                    <span>{sub.name}</span>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                      isSelected ? 'bg-white/20' : 'bg-black/5'
+                    }`}>
+                      {subCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Level 4: Country-Specific Discovery Categories */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                selectedCategory === 'all'
+                  ? 'bg-[#C78363] text-white font-semibold shadow-xs'
+                  : 'bg-white text-[#292D2A] border border-[#244536]/15 hover:bg-[#244536]/5'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>All Highlights</span>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                selectedCategory === 'all' ? 'bg-white/20' : 'bg-black/5'
+              }`}>
+                {activeScopeDestinations.length}
+              </span>
+            </button>
+
+            {activeCountry.supportedCategories.map((catKey) => {
+              const meta = ExploreService.getCategoryMeta(catKey);
+              const isSelected = selectedCategory === catKey;
+              const count = activeScopeDestinations.filter((d) => d.category === catKey).length;
+              if (count === 0 && selectedCategory !== catKey) return null;
+              return (
+                <button
+                  key={catKey}
+                  type="button"
+                  onClick={() => setSelectedCategory(catKey)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#C78363] text-white font-semibold shadow-xs'
+                      : 'bg-white text-[#292D2A] border border-[#244536]/15 hover:bg-[#244536]/5'
+                  }`}
+                >
+                  {getCategoryIcon(catKey)}
+                  <span>{meta.label}</span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                    isSelected ? 'bg-white/20' : 'bg-black/5'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Destination Cards Grid for Country */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-xl font-bold text-[#244536]">
+                {selectedSubdivisionId === 'all'
+                  ? `Curated Itineraries in ${activeCountry.name}`
+                  : `${activeCountry.subdivisions.find((s) => s.id === selectedSubdivisionId)?.name} Corridors`}
+              </h3>
+              <span className="text-xs font-mono text-[#5F6761]">
+                {filteredDestinations.length} {filteredDestinations.length === 1 ? 'place' : 'places'} found
+              </span>
+            </div>
+
+            {filteredDestinations.length === 0 ? (
+              <div className="p-10 text-center bg-white rounded-3xl border border-[#244536]/15 space-y-3">
+                <Compass className="w-7 h-7 text-[#C78363] mx-auto animate-bounce" />
+                <h4 className="font-serif text-base font-medium text-[#244536]">No destinations matched the selected category</h4>
+                <p className="text-xs text-[#5F6761] max-w-sm mx-auto">
+                  Try switching back to &ldquo;All Highlights&rdquo; or selecting another administrative subdivision.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubdivisionId('all');
+                    setSelectedCategory('all');
+                  }}
+                  className="px-3.5 py-1.5 bg-[#244536] text-white rounded-xl text-xs font-medium"
+                >
+                  Show All {activeCountry.name} Places
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredDestinations.map((destination, index) => {
+                  const isSaved = savedNames.includes(destination.name);
+                  const subdivision = activeCountry.subdivisions.find((s) => s.id === destination.subdivisionId);
+
+                  return (
+                    <motion.div
+                      key={destination.id}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.35, delay: index * 0.04 }}
+                      className="group bg-white rounded-2xl border border-[#244536]/10 hover:border-[#244536]/30 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="relative h-56 w-full overflow-hidden bg-[#E7ECE5]">
+                          <img
+                            src={destination.image}
+                            alt={destination.name}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleSave(destination.name)}
+                            className="absolute top-3.5 right-3.5 p-2 bg-white/90 backdrop-blur-md rounded-xl text-[#292D2A]/60 hover:text-[#C78363] hover:bg-white shadow-xs transition"
+                            title={isSaved ? 'Remove from saved' : 'Save destination'}
+                          >
+                            <Heart className={`w-4 h-4 ${isSaved ? 'fill-[#C78363] text-[#C78363]' : ''}`} />
+                          </button>
+                          <div className="absolute top-3.5 left-3.5 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl border border-[#244536]/15 shadow-sm flex items-center gap-1 text-[11px] font-bold text-[#244536]">
+                            <ShieldCheck className="w-3.5 h-3.5 text-[#244536]" />
+                            <span>{destination.hygieneScore}/100</span>
+                          </div>
+                          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 flex-wrap">
+                            <span className="px-2.5 py-1 bg-[#244536]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium flex items-center gap-1">
+                              {getCategoryIcon(destination.category)}
+                              <span>{destination.categoryLabel || destination.category}</span>
+                            </span>
+                            {subdivision && (
+                              <span className="px-2 py-1 bg-[#C78363]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
+                                {subdivision.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-5 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h4 className="font-serif text-lg font-bold text-[#292D2A] group-hover:text-[#244536] transition-colors line-clamp-1">
+                                {destination.name}
+                              </h4>
+                              <div className="flex items-center gap-1.5 text-xs text-[#292D2A]/60 mt-0.5">
+                                <MapPin className="w-3.5 h-3.5 text-[#C78363] shrink-0" />
+                                <span className="truncate">{subdivision?.name || activeCountry.name}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-200/60 text-amber-800 text-xs font-semibold shrink-0">
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                              <span>{destination.rating}</span>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-[#292D2A]/70 line-clamp-2 leading-relaxed">
+                            {destination.description}
+                          </p>
+
+                          <div className="flex items-center justify-between text-[11px] pt-1 text-[#5F6761]">
+                            <span>Best time: <strong className="text-[#244536]">{destination.bestSeason}</strong></span>
+                            <span className="text-emerald-700 font-medium">✓ {destination.hygieneStatus}</span>
+                          </div>
+
+                          <div className="pt-2 border-t border-[#244536]/8 flex flex-wrap gap-1.5">
+                            {destination.highlights.map((h) => (
+                              <span key={h} className="text-[10px] px-2 py-0.5 bg-[#F7F5EF] text-[#244536] rounded-md font-mono">
+                                {h}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="px-5 py-3.5 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between gap-3">
+                        <div className="text-[11px] text-[#292D2A]/50 font-mono">
+                          {destination.reviews.toLocaleString()} reviews
+                        </div>
+                        <Button
+                          onClick={() => router.push(`/home?destination=${encodeURIComponent(destination.name)}`)}
+                          className="bg-[#244536] text-white hover:bg-[#1B3529] rounded-xl px-4 py-1.5 text-xs font-medium gap-1.5 shadow-xs"
+                        >
+                          <span>Plan Route</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      ) : (
+        /* ------------------------------------------------------------------------ */
+        /* PRIMARY EXPLORE CATALOGUE: NESTED CONTINENT CARDS HIERARCHY */
+        /* ------------------------------------------------------------------------ */
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-[#C78363]" />
+              <h2 className="font-serif text-2xl font-bold text-[#244536]">
+                Global Geographic Catalogue
+              </h2>
+            </div>
+            <span className="text-xs font-mono text-[#5F6761]">
+              {stats.continentsCount} Continents · {stats.countriesCount} Countries · {stats.destinationsCount} Verified Places
+            </span>
+          </div>
+
+          {/* Accordion / Nested Stack of Continent Cards */}
+          <div className="space-y-6">
+            {continents.map((continent) => {
+              const isExpanded = expandedContinentId === continent.id;
+              const countriesInContinent = ExploreService.getCountries(continent.id);
+              const destinationsInContinent = ExploreService.getDestinations({ continentId: continent.id });
+
+              return (
+                <div
+                  key={continent.id}
+                  className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden shadow-xs ${
+                    isExpanded 
+                      ? 'border-[#244536]/40 shadow-md ring-1 ring-[#244536]/10' 
+                      : 'border-[#244536]/15 hover:border-[#244536]/30'
+                  }`}
+                >
+                  {/* CONTINENT CARD BANNER / HEADER */}
+                  <div
+                    onClick={() => handleContinentToggle(continent.id)}
+                    className="cursor-pointer relative overflow-hidden"
+                  >
+                    <div className="relative h-44 sm:h-52 w-full overflow-hidden bg-[#244536]">
+                      <img
+                        src={continent.heroImage}
+                        alt={continent.name}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                        }}
+                        className={`w-full h-full object-cover transition-transform duration-700 ${
+                          isExpanded ? 'scale-105 opacity-40' : 'opacity-50 hover:scale-102'
+                        }`}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#244536] via-[#244536]/60 to-transparent" />
+
+                      {/* Content Overlay */}
+                      <div className="absolute inset-0 p-5 sm:p-7 flex flex-col justify-between text-white">
+                        <div className="flex items-start justify-between">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[11px] font-mono tracking-wider">
+                            <span>CODE: {continent.code}</span>
+                            <span>•</span>
+                            <span>{countriesInContinent.length} {countriesInContinent.length === 1 ? 'Country' : 'Countries'}</span>
+                          </div>
+
+                          {/* Expand/Collapse Toggle Button */}
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${continent.name}`}
+                            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white text-[#244536] text-xs font-semibold shadow-sm hover:bg-[#FAF8F5] transition"
+                          >
+                            <span>{isExpanded ? 'Collapse Countries' : 'Explore Countries'}</span>
+                            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+                            <span>{continent.name}</span>
+                          </h3>
+                          <p className="text-xs sm:text-sm text-white/85 line-clamp-1 sm:line-clamp-2 mt-1 max-w-2xl leading-relaxed">
+                            {continent.description}
+                          </p>
+                          <div className="text-[11px] font-mono text-[#C78363] mt-2 flex items-center gap-2">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>{destinationsInContinent.length} Curated Destination Corridors &amp; Circuits</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ------------------------------------------------------------------------ */}
+                  {/* NESTED CONTENT: COUNTRIES DIRECTLY INSIDE CONTINENT CARD */}
+                  {/* ------------------------------------------------------------------------ */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.35, ease: 'easeInOut' }}
+                        className="bg-[#FAF8F5] border-t border-[#244536]/15 p-5 sm:p-7 space-y-5"
+                      >
+                        <div className="flex items-center justify-between border-b border-[#244536]/10 pb-3">
+                          <div className="flex items-center gap-2">
+                            <Compass className="w-4 h-4 text-[#C78363]" />
+                            <h4 className="font-serif text-lg font-bold text-[#244536]">
+                              Countries &amp; Regions in {continent.name}
+                            </h4>
+                          </div>
+                          <span className="text-xs font-mono text-[#5F6761]">
+                            {countriesInContinent.length} Represented
+                          </span>
+                        </div>
+
+                        {/* Responsive Grid of Country Cards Nested Inside Continent */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {countriesInContinent.map((country) => {
+                            const countryDestinationsCount = ExploreService.getDestinations({ countryId: country.id }).length;
+
+                            return (
+                              <motion.div
+                                key={country.id}
+                                whileHover={{ y: -3 }}
+                                className="group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                              >
+                                <div>
+                                  {/* Country Card Photo */}
+                                  <div className="relative h-40 w-full overflow-hidden bg-[#E7ECE5]">
+                                    <img
+                                      src={country.heroImage}
+                                      alt={country.name}
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                                      }}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                                    />
+                                    {/* Country Flag & Name Badge */}
+                                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl text-xs font-medium text-[#244536] shadow-xs flex items-center gap-1.5">
+                                      <span className="text-base">{country.flag}</span>
+                                      <span className="font-serif font-bold">{country.name}</span>
+                                      <span className="text-[10px] font-mono text-[#5F6761]">[{country.isoCode}]</span>
+                                    </div>
+
+                                    {/* Subdivisions count badge */}
+                                    <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 bg-[#244536]/90 text-white rounded-md text-[10px] font-mono">
+                                      {country.subdivisions.length} {country.subdivisionLabel}
+                                    </div>
+                                  </div>
+
+                                  {/* Country Card Info */}
+                                  <div className="p-4 space-y-2">
+                                    <h5 className="font-serif text-sm font-bold text-[#244536] group-hover:text-[#C78363] transition-colors line-clamp-1">
+                                      {country.tagline}
+                                    </h5>
+                                    <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
+                                      {country.description}
+                                    </p>
+                                    <div className="text-[11px] font-mono text-[#5F6761] pt-1">
+                                      Currency: <strong>{country.currency}</strong> · Capital: <strong>{country.capital}</strong>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Country Card Footer Action */}
+                                <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-mono text-[#5F6761]">
+                                    {countryDestinationsCount} places
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectCountry(country)}
+                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#244536] group-hover:text-[#C78363] transition-colors"
+                                  >
+                                    <span>Explore {country.name}</span>
+                                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                                  </button>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </main>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F7F5EF] p-8 text-center text-xs font-mono text-[#5F6761]">Loading WanderCanvas Explore...</div>}>
+      <ExploreContent />
+    </Suspense>
   );
 }

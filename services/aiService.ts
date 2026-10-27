@@ -1,7 +1,19 @@
-import { TravelFormData, TravelBoard, DestinationData, MoodBoardImage, ColorPalette, Attraction, FoodRecommendation, PackingItem, ItineraryDay, TravelInsight, CategoryDetails } from '@/types';
+import { 
+  TravelFormData, 
+  TravelBoard, 
+  DestinationData, 
+  MoodBoardImage, 
+  ColorPalette, 
+  Attraction, 
+  FoodRecommendation, 
+  PackingItem, 
+  ItineraryDay, 
+  TravelInsight, 
+  CategoryDetails 
+} from '@/types';
 import { generateId, resetIdCounter } from '@/lib/utils';
+import { resolveDestinationKnowledge } from '@/data/destinationKnowledge';
 
-// Mock AI service - In production, this would call actual AI APIs
 export class AIService {
   private static delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -11,34 +23,24 @@ export class AIService {
     // Reset ID counter for deterministic IDs
     resetIdCounter();
     
-    // Simulate AI processing time
-    await this.delay(1500);
+    // Simulate natural AI thinking time
+    await this.delay(600);
 
-    const destination = this.generateDestination(formData);
-    await this.delay(800);
+    const profile = resolveDestinationKnowledge(formData.destination);
+
+    const destination: DestinationData = {
+      ...profile.destination,
+      dailyBudget: Math.round(formData.budget / Math.max(formData.duration, 1)),
+    };
     
-    const moodBoard = this.generateMoodBoard(formData);
-    await this.delay(600);
-    
-    const categoryDetails = this.generateCategoryDetails(formData);
-    await this.delay(600);
-    
-    const colorPalette = this.generateColorPalette(formData);
-    await this.delay(500);
-    
-    const attractions = this.generateAttractions(formData);
-    await this.delay(700);
-    
-    const foodRecommendations = this.generateFoodRecommendations(formData);
-    await this.delay(600);
-    
-    const packingList = this.generatePackingList(formData);
-    await this.delay(500);
-    
-    const itinerary = this.generateItinerary(formData);
-    await this.delay(700);
-    
-    const insights = this.generateInsights(formData);
+    const moodBoard = this.generateMoodBoard(formData, profile.categoryDetails);
+    const categoryDetails = Object.values(profile.categoryDetails);
+    const colorPalette = profile.colorPalette;
+    const attractions = profile.attractions;
+    const foodRecommendations = profile.foodRecommendations;
+    const packingList = this.generatePackingList(formData, destination);
+    const itinerary = this.generateItinerary(formData, attractions, foodRecommendations);
+    const insights = this.generateInsights(formData, destination);
 
     return {
       id: generateId(),
@@ -56,438 +58,371 @@ export class AIService {
     };
   }
 
-  private static generateDestination(formData: TravelFormData): DestinationData {
-    const destinations: Record<string, DestinationData> = {
-      'paris': {
-        name: 'Paris',
-        description: 'The City of Light beckons with its iconic Eiffel Tower, world-class museums, charming cafés, and romantic Seine River. Experience art, fashion, and culinary excellence in this timeless European capital.',
-        heroImage: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1200&q=80',
-        bestSeason: 'April to June, September to October',
-        weather: 'Mild springs, warm summers, cool autumns',
-        dailyBudget: formData.budget / formData.duration,
-      },
-      'tokyo': {
-        name: 'Tokyo',
-        description: 'A mesmerizing blend of ancient tradition and cutting-edge technology. From serene temples to neon-lit streets, Tokyo offers an unforgettable journey through Japanese culture, cuisine, and innovation.',
-        heroImage: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1200&q=80',
-        bestSeason: 'March to May, September to November',
-        weather: 'Cherry blossoms in spring, mild autumns',
-        dailyBudget: formData.budget / formData.duration,
-      },
-      'bali': {
-        name: 'Bali',
-        description: 'An Indonesian paradise of lush rice terraces, ancient temples, pristine beaches, and vibrant culture. Discover spiritual retreats, world-class surfing, and warm Balinese hospitality.',
-        heroImage: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=1200&q=80',
-        bestSeason: 'April to October',
-        weather: 'Tropical climate, dry season ideal',
-        dailyBudget: formData.budget / formData.duration,
-      },
-      'goa': {
-        name: 'Goa',
-        description: 'India\'s beach paradise offers golden sands, Portuguese heritage, vibrant nightlife, and laid-back vibes. Experience water sports, beach shacks, historic churches, and unforgettable sunsets.',
-        heroImage: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1200&q=80',
-        bestSeason: 'November to February',
-        weather: 'Tropical, warm and sunny',
-        dailyBudget: formData.budget / formData.duration,
-      },
-      'dubai': {
-        name: 'Dubai',
-        description: 'A futuristic oasis in the desert featuring towering skyscrapers, luxury shopping, pristine beaches, and world-class entertainment. Experience the perfect blend of tradition and innovation.',
-        heroImage: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=1200&q=80',
-        bestSeason: 'November to March',
-        weather: 'Hot desert climate, mild winters',
-        dailyBudget: formData.budget / formData.duration,
-      },
-      'london': {
-        name: 'London',
-        description: 'A historic metropolis blending royal heritage with modern culture. Explore iconic landmarks, world-class museums, diverse neighborhoods, and a thriving arts scene in this global capital.',
-        heroImage: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1200&q=80',
-        bestSeason: 'May to September',
-        weather: 'Temperate, mild and rainy',
-        dailyBudget: formData.budget / formData.duration,
-      },
-      'new york': {
-        name: 'New York',
-        description: 'The city that never sleeps offers iconic skylines, Broadway shows, world-class dining, and endless energy. Experience the melting pot of cultures in America\'s most vibrant metropolis.',
-        heroImage: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1200&q=80',
-        bestSeason: 'April to June, September to November',
-        weather: 'Four distinct seasons',
-        dailyBudget: formData.budget / formData.duration,
-      },
-      'santorini': {
-        name: 'Santorini',
-        description: 'A Greek island paradise famous for whitewashed buildings, blue-domed churches, stunning sunsets, and volcanic beaches. Experience romance, wine, and Mediterranean beauty.',
-        heroImage: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=1200&q=80',
-        bestSeason: 'April to November',
-        weather: 'Mediterranean, warm and dry',
-        dailyBudget: formData.budget / formData.duration,
-      },
-    };
-
-    const key = formData.destination.toLowerCase();
-    return destinations[key] || {
-      name: formData.destination,
-      description: `Discover the wonders of ${formData.destination}, a destination filled with unique experiences, rich culture, and unforgettable memories waiting to be made.`,
-      heroImage: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&q=80',
-      bestSeason: 'Year-round',
-      weather: 'Varies by season',
-      dailyBudget: formData.budget / formData.duration,
-    };
-  }
-
-  private static generateMoodBoard(formData: TravelFormData): MoodBoardImage[] {
-    // Real working Unsplash images for each category
-    const categoryImages: Record<string, string> = {
-      'nature': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
-      'food': 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
-      'architecture': 'https://images.unsplash.com/photo-1511452885600-a3d2c9148a31?w=600&q=80',
-      'beaches': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
-      'culture': 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=600&q=80',
-      'cafes': 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&q=80',
-      'adventure': 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=600&q=80',
-      'nightlife': 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&q=80',
-    };
-
-    const categories = ['nature', 'food', 'architecture', 'beaches', 'culture', 'cafes', 'adventure', 'nightlife'];
+  private static generateMoodBoard(
+    formData: TravelFormData, 
+    categories: Record<string, CategoryDetails>
+  ): MoodBoardImage[] {
+    const categoryKeys = ['nature', 'food', 'architecture', 'beaches', 'culture', 'cafes', 'adventure', 'nightlife'];
     
-    return categories.map((category) => ({
-      id: generateId(),
-      url: categoryImages[category],
-      category,
-      alt: `${formData.destination} ${category}`,
-    }));
+    return categoryKeys.map((category) => {
+      const catDetail = categories[category];
+      return {
+        id: generateId(),
+        url: catDetail?.imageUrl || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
+        category,
+        alt: `${formData.destination} ${category}`,
+      };
+    });
   }
 
-  private static generateCategoryDetails(formData: TravelFormData): CategoryDetails[] {
-    const destination = formData.destination.toLowerCase();
-    
-    const categoryData: Record<string, CategoryDetails> = {
-      'nature': {
-        category: 'nature',
-        imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
-        whyPopular: `${formData.destination} offers breathtaking natural landscapes, from scenic parks to stunning viewpoints. Perfect for outdoor enthusiasts and photography lovers.`,
-        topPlaces: [
-          { id: generateId(), name: 'Central Park', description: 'Lush green oasis in the heart of the city', estimatedCost: '$0-20', duration: '2-3 hours' },
-          { id: generateId(), name: 'Botanical Gardens', description: 'Diverse plant collections and peaceful walking paths', estimatedCost: '$15-25', duration: '1-2 hours' },
-          { id: generateId(), name: 'Scenic Overlook', description: 'Panoramic views of the surrounding landscape', estimatedCost: '$0-10', duration: '1 hour' },
-        ],
-        estimatedCost: '$10-50 per visit',
-        bestTime: 'Early morning or late afternoon for best lighting',
-        recommendedDuration: '2-4 hours per location',
-        tags: ['Outdoor', 'Photography', 'Relaxation', 'Family-Friendly'],
-      },
-      'food': {
-        category: 'food',
-        imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
-        whyPopular: `Experience authentic local cuisine and world-class dining. ${formData.destination} is renowned for its diverse culinary scene and unique flavors.`,
-        topPlaces: [
-          { id: generateId(), name: 'Local Market', description: 'Fresh ingredients and street food vendors', estimatedCost: '$10-30', duration: '1-2 hours' },
-          { id: generateId(), name: 'Signature Restaurant', description: 'Traditional dishes with modern twist', estimatedCost: '$40-80', duration: '2 hours' },
-          { id: generateId(), name: 'Food Tour', description: 'Guided tasting experience through the city', estimatedCost: '$60-100', duration: '3-4 hours' },
-        ],
-        estimatedCost: '$30-100 per meal',
-        bestTime: 'Lunch (12-2pm) or Dinner (7-9pm)',
-        recommendedDuration: '1-3 hours per experience',
-        tags: ['Culinary', 'Local Culture', 'Must-Try', 'Social'],
-      },
-      'architecture': {
-        category: 'architecture',
-        imageUrl: 'https://images.unsplash.com/photo-1511452885600-a3d2c9148a31?w=600&q=80',
-        whyPopular: `Marvel at stunning architectural masterpieces that define ${formData.destination}'s skyline and heritage. From historic buildings to modern marvels.`,
-        topPlaces: [
-          { id: generateId(), name: 'Historic Cathedral', description: 'Centuries-old architectural wonder', estimatedCost: '$10-20', duration: '1-2 hours' },
-          { id: generateId(), name: 'Modern Art Museum', description: 'Contemporary design and exhibitions', estimatedCost: '$20-30', duration: '2-3 hours' },
-          { id: generateId(), name: 'Old Town District', description: 'Preserved historical architecture', estimatedCost: '$0-15', duration: '2-3 hours' },
-        ],
-        estimatedCost: '$15-40 per site',
-        bestTime: 'Morning for fewer crowds',
-        recommendedDuration: '1-3 hours per location',
-        tags: ['History', 'Culture', 'Photography', 'Educational'],
-      },
-      'beaches': {
-        category: 'beaches',
-        imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
-        whyPopular: `Pristine beaches and crystal-clear waters make ${formData.destination} a paradise for beach lovers. Perfect for relaxation and water activities.`,
-        topPlaces: [
-          { id: generateId(), name: 'Main Beach', description: 'Popular beach with amenities and activities', estimatedCost: '$0-30', duration: '3-5 hours' },
-          { id: generateId(), name: 'Hidden Cove', description: 'Secluded spot for peaceful relaxation', estimatedCost: '$0-20', duration: '2-4 hours' },
-          { id: generateId(), name: 'Water Sports Center', description: 'Surfing, snorkeling, and diving', estimatedCost: '$50-150', duration: '2-3 hours' },
-        ],
-        estimatedCost: '$20-100 per day',
-        bestTime: 'Morning (8-11am) for calm waters',
-        recommendedDuration: '3-6 hours',
-        tags: ['Relaxation', 'Water Sports', 'Scenic', 'Family-Friendly'],
-      },
-      'culture': {
-        category: 'culture',
-        imageUrl: 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=600&q=80',
-        whyPopular: `Immerse yourself in the rich cultural heritage of ${formData.destination}. Experience local traditions, art, and community life.`,
-        topPlaces: [
-          { id: generateId(), name: 'Cultural Center', description: 'Traditional performances and exhibitions', estimatedCost: '$15-40', duration: '2-3 hours' },
-          { id: generateId(), name: 'Local Festival', description: 'Seasonal celebrations and events', estimatedCost: '$0-50', duration: '3-5 hours' },
-          { id: generateId(), name: 'Heritage Museum', description: 'Historical artifacts and stories', estimatedCost: '$10-25', duration: '1-2 hours' },
-        ],
-        estimatedCost: '$20-60 per experience',
-        bestTime: 'Varies by event, check local calendar',
-        recommendedDuration: '2-4 hours',
-        tags: ['Cultural', 'Educational', 'Authentic', 'Memorable'],
-      },
-      'cafes': {
-        category: 'cafes',
-        imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&q=80',
-        whyPopular: `Discover charming cafes and coffee culture in ${formData.destination}. Perfect spots for relaxation, work, or people-watching.`,
-        topPlaces: [
-          { id: generateId(), name: 'Artisan Coffee House', description: 'Specialty coffee and pastries', estimatedCost: '$5-15', duration: '1-2 hours' },
-          { id: generateId(), name: 'Rooftop Cafe', description: 'Scenic views with your coffee', estimatedCost: '$8-20', duration: '1-2 hours' },
-          { id: generateId(), name: 'Historic Tea Room', description: 'Traditional tea service and ambiance', estimatedCost: '$15-30', duration: '1-2 hours' },
-        ],
-        estimatedCost: '$10-25 per visit',
-        bestTime: 'Mid-morning (10am-12pm) or afternoon (3-5pm)',
-        recommendedDuration: '1-2 hours',
-        tags: ['Relaxation', 'Social', 'Budget-Friendly', 'Instagram-Worthy'],
-      },
-      'adventure': {
-        category: 'adventure',
-        imageUrl: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=600&q=80',
-        whyPopular: `Get your adrenaline pumping with thrilling adventures in ${formData.destination}. From extreme sports to outdoor challenges.`,
-        topPlaces: [
-          { id: generateId(), name: 'Zip Line Course', description: 'Soar through the canopy', estimatedCost: '$60-120', duration: '2-3 hours' },
-          { id: generateId(), name: 'Rock Climbing', description: 'Indoor and outdoor climbing experiences', estimatedCost: '$40-80', duration: '2-4 hours' },
-          { id: generateId(), name: 'Adventure Park', description: 'Multiple activities and challenges', estimatedCost: '$50-100', duration: '3-5 hours' },
-        ],
-        estimatedCost: '$50-150 per activity',
-        bestTime: 'Morning for cooler temperatures',
-        recommendedDuration: '2-5 hours',
-        tags: ['Adrenaline', 'Outdoor', 'Active', 'Memorable'],
-      },
-      'nightlife': {
-        category: 'nightlife',
-        imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&q=80',
-        whyPopular: `Experience the vibrant nightlife of ${formData.destination}. From rooftop bars to live music venues and dance clubs.`,
-        topPlaces: [
-          { id: generateId(), name: 'Rooftop Bar', description: 'Cocktails with panoramic city views', estimatedCost: '$30-80', duration: '2-3 hours' },
-          { id: generateId(), name: 'Live Music Venue', description: 'Local and international performances', estimatedCost: '$20-60', duration: '2-4 hours' },
-          { id: generateId(), name: 'Night Market', description: 'Street food and shopping after dark', estimatedCost: '$15-40', duration: '2-3 hours' },
-        ],
-        estimatedCost: '$40-100 per night',
-        bestTime: 'Evening (8pm onwards)',
-        recommendedDuration: '2-4 hours',
-        tags: ['Entertainment', 'Social', 'Vibrant', 'Adults'],
-      },
-    };
+  private static generatePackingList(formData: TravelFormData, destination: DestinationData): PackingItem[] {
+    const isCold = /antarctica|spiti|matterhorn|zermatt|himalaya|alps/i.test(destination.name + destination.weather);
+    const isTropical = /bali|goa|amalfi|thailand|indonesia|beach/i.test(destination.name + destination.weather);
 
-    return Object.values(categoryData);
-  }
-
-  private static generateColorPalette(formData: TravelFormData): ColorPalette[] {
-    const palettes: Record<string, ColorPalette[]> = {
-      'paris': [
-        { hex: '#2C3E50', name: 'Parisian Night' },
-        { hex: '#E8D5C4', name: 'Café Crème' },
-        { hex: '#8B7355', name: 'Seine Stone' },
-        { hex: '#C9A66B', name: 'Golden Hour' },
-        { hex: '#4A5D6C', name: 'Eiffel Steel' },
-      ],
-      'tokyo': [
-        { hex: '#FF6B9D', name: 'Cherry Blossom' },
-        { hex: '#1A1A2E', name: 'Tokyo Night' },
-        { hex: '#16213E', name: 'Shibuya Blue' },
-        { hex: '#0F3460', name: 'Mount Fuji' },
-        { hex: '#E94560', name: 'Neon Red' },
-      ],
-      'bali': [
-        { hex: '#00B4D8', name: 'Ocean Blue' },
-        { hex: '#90E0EF', name: 'Tropical Sky' },
-        { hex: '#48CAE4', name: 'Beach Water' },
-        { hex: '#023E8A', name: 'Deep Sea' },
-        { hex: '#0077B6', name: 'Island Breeze' },
-      ],
-    };
-
-    const key = formData.destination.toLowerCase();
-    return palettes[key] || [
-      { hex: '#667EEA', name: 'Primary' },
-      { hex: '#764BA2', name: 'Secondary' },
-      { hex: '#F093FB', name: 'Accent' },
-      { hex: '#4FACFE', name: 'Sky' },
-      { hex: '#00F2FE', name: 'Cyan' },
-    ];
-  }
-
-  private static generateAttractions(formData: TravelFormData): Attraction[] {
-    return [
-      {
-        id: generateId(),
-        name: 'Historic City Center',
-        description: 'Explore the heart of the city with its iconic landmarks and rich history.',
-        duration: '3-4 hours',
-        category: 'Culture',
-      },
-      {
-        id: generateId(),
-        name: 'Local Market Experience',
-        description: 'Immerse yourself in local culture at the vibrant traditional market.',
-        duration: '2-3 hours',
-        category: 'Culture',
-      },
-      {
-        id: generateId(),
-        name: 'Scenic Viewpoint',
-        description: 'Breathtaking panoramic views of the city and surrounding landscape.',
-        duration: '1-2 hours',
-        category: 'Nature',
-      },
-      {
-        id: generateId(),
-        name: 'Museum of Art & History',
-        description: 'World-class collection showcasing local and international masterpieces.',
-        duration: '2-3 hours',
-        category: 'Culture',
-      },
-      {
-        id: generateId(),
-        name: 'Waterfront Promenade',
-        description: 'Relaxing walk along the water with cafes and street performers.',
-        duration: '1-2 hours',
-        category: 'Leisure',
-      },
-      {
-        id: generateId(),
-        name: 'Adventure Park',
-        description: 'Thrilling outdoor activities and nature experiences.',
-        duration: '4-5 hours',
-        category: 'Adventure',
-      },
-    ];
-  }
-
-  private static generateFoodRecommendations(formData: TravelFormData): FoodRecommendation[] {
-    return [
-      {
-        id: generateId(),
-        name: 'Traditional Local Dish',
-        description: 'Authentic regional specialty passed down through generations.',
-        significance: 'A cornerstone of local cuisine, representing cultural heritage.',
-      },
-      {
-        id: generateId(),
-        name: 'Street Food Favorite',
-        description: 'Popular quick bite loved by locals and visitors alike.',
-        significance: 'Represents the vibrant street food culture of the region.',
-      },
-      {
-        id: generateId(),
-        name: 'Signature Dessert',
-        description: 'Sweet delicacy unique to this destination.',
-        significance: 'Traditional recipe celebrating local ingredients.',
-      },
-      {
-        id: generateId(),
-        name: 'Seafood Specialty',
-        description: 'Fresh catch prepared with local spices and techniques.',
-        significance: 'Showcases the coastal culinary traditions.',
-      },
-      {
-        id: generateId(),
-        name: 'Vegetarian Delight',
-        description: 'Plant-based dish bursting with local flavors.',
-        significance: 'Reflects the diverse dietary traditions of the area.',
-      },
-    ];
-  }
-
-  private static generatePackingList(formData: TravelFormData): PackingItem[] {
     const baseItems: PackingItem[] = [
-      { id: generateId(), item: 'Passport & Travel Documents', category: 'Essentials', checked: false },
-      { id: generateId(), item: 'Phone & Charger', category: 'Electronics', checked: false },
-      { id: generateId(), item: 'Credit Cards & Cash', category: 'Essentials', checked: false },
-      { id: generateId(), item: 'Comfortable Walking Shoes', category: 'Clothing', checked: false },
-      { id: generateId(), item: 'Weather-Appropriate Clothing', category: 'Clothing', checked: false },
-      { id: generateId(), item: 'Toiletries & Medications', category: 'Personal Care', checked: false },
-      { id: generateId(), item: 'Camera', category: 'Electronics', checked: false },
-      { id: generateId(), item: 'Sunscreen & Sunglasses', category: 'Personal Care', checked: false },
-      { id: generateId(), item: 'Reusable Water Bottle', category: 'Essentials', checked: false },
-      { id: generateId(), item: 'Travel Adapter', category: 'Electronics', checked: false },
+      { id: generateId(), item: 'Passport & Essential Travel Documents', category: 'Essentials', checked: false },
+      { id: generateId(), item: 'Universal Power Adapter & Cable Kit', category: 'Electronics', checked: false },
+      { id: generateId(), item: 'Cards & Local Currency Reserves', category: 'Essentials', checked: false },
+      { id: generateId(), item: 'Comfortable Vibram-Sole Walking Shoes', category: 'Clothing', checked: false },
+      { id: generateId(), item: 'Personal First-Aid & Essential Medications', category: 'Personal Care', checked: false },
+      { id: generateId(), item: 'High-SPF Sunscreen & UV Sunglasses', category: 'Personal Care', checked: false },
+      { id: generateId(), item: 'Reusable Insulated Water Bottle', category: 'Essentials', checked: false },
+      { id: generateId(), item: 'Compact High-Capacity Power Bank', category: 'Electronics', checked: false },
     ];
 
-    // Add style-specific items
+    if (isCold) {
+      baseItems.push(
+        { id: generateId(), item: 'Thermal Base Layers (Merino Wool)', category: 'Clothing', checked: false },
+        { id: generateId(), item: 'Waterproof Gore-Tex Windbreaker Jacket', category: 'Clothing', checked: false },
+        { id: generateId(), item: 'Insulated Touchscreen Gloves & Beanie', category: 'Clothing', checked: false },
+        { id: generateId(), item: 'Moisturizing Lip Balm & Cold Cream', category: 'Personal Care', checked: false }
+      );
+    } else if (isTropical) {
+      baseItems.push(
+        { id: generateId(), item: 'Breathable Linen Shirts & Shorts', category: 'Clothing', checked: false },
+        { id: generateId(), item: 'Quick-Dry Swimwear & Microfiber Towel', category: 'Clothing', checked: false },
+        { id: generateId(), item: 'Natural Mosquito & Insect Repellent', category: 'Personal Care', checked: false },
+        { id: generateId(), item: 'Waterproof Phone Dry Bag Pouch', category: 'Gear', checked: false }
+      );
+    } else {
+      baseItems.push(
+        { id: generateId(), item: 'Light Layering Cardigan / Light Jacket', category: 'Clothing', checked: false },
+        { id: generateId(), item: 'Compact Foldable Travel Umbrella', category: 'Gear', checked: false }
+      );
+    }
+
     if (formData.travelStyle === 'adventure') {
       baseItems.push(
-        { id: generateId(), item: 'Hiking Boots', category: 'Clothing', checked: false },
-        { id: generateId(), item: 'Backpack', category: 'Gear', checked: false },
-        { id: generateId(), item: 'First Aid Kit', category: 'Safety', checked: false }
+        { id: generateId(), item: 'Ankle-Support Waterproof Trail Boots', category: 'Clothing', checked: false },
+        { id: generateId(), item: '25L Ergonomic Daypack with Rain Cover', category: 'Gear', checked: false },
+        { id: generateId(), item: 'Electrolyte Hydration Tablets', category: 'Personal Care', checked: false }
       );
     } else if (formData.travelStyle === 'luxury') {
       baseItems.push(
-        { id: generateId(), item: 'Formal Attire', category: 'Clothing', checked: false },
-        { id: generateId(), item: 'Jewelry & Accessories', category: 'Personal', checked: false }
-      );
-    } else if (formData.travelStyle === 'backpacking') {
-      baseItems.push(
-        { id: generateId(), item: 'Sleeping Bag', category: 'Gear', checked: false },
-        { id: generateId(), item: 'Portable Charger', category: 'Electronics', checked: false }
+        { id: generateId(), item: 'Smart Casual / Evening Attire for Fine Dining', category: 'Clothing', checked: false },
+        { id: generateId(), item: 'Wrinkle-Release Fabric Spray', category: 'Personal Care', checked: false }
       );
     }
 
     return baseItems;
   }
 
-  private static generateItinerary(formData: TravelFormData): ItineraryDay[] {
+  private static generateItinerary(
+    formData: TravelFormData, 
+    attractions: Attraction[], 
+    foods: FoodRecommendation[]
+  ): ItineraryDay[] {
     const days: ItineraryDay[] = [];
-    
-    for (let i = 1; i <= Math.min(formData.duration, 7); i++) {
+    const numDays = Math.min(formData.duration || 3, 7);
+
+    for (let i = 1; i <= numDays; i++) {
+      const attractionA = attractions[(i * 2 - 2) % attractions.length];
+      const attractionB = attractions[(i * 2 - 1) % attractions.length];
+      const foodItem = foods[(i - 1) % foods.length];
+
       days.push({
         day: i,
-        morning: `Start your day with breakfast at a local café, then explore the historic district and visit key landmarks.`,
-        afternoon: `Enjoy lunch at a recommended restaurant, followed by a visit to museums or cultural sites.`,
-        evening: `Experience the local nightlife, dine at a traditional restaurant, and take an evening stroll.`,
+        morning: `Commence with morning coffee and pastries, followed by a visit to ${attractionA.name} (${attractionA.duration}).`,
+        afternoon: `Savor an authentic lunch featuring ${foodItem.name}, followed by exploring ${attractionB.name} (${attractionB.duration}).`,
+        evening: `Golden hour sunset stroll along scenic viewpoints, followed by evening dinner and regional dessert.`,
       });
     }
 
     return days;
   }
 
-  private static generateInsights(formData: TravelFormData): TravelInsight[] {
+  private static generateInsights(formData: TravelFormData, destination: DestinationData): TravelInsight[] {
+    const isAntarctica = /antarctica/i.test(destination.name);
+    const isIndia = /india|spiti|jaipur|udaipur|kerala|goa/i.test(destination.name);
+    const isJapan = /kyoto|tokyo|japan/i.test(destination.name);
+    const isItaly = /amalfi|italy|campania/i.test(destination.name);
+    const isIndonesia = /bali|indonesia|komodo/i.test(destination.name);
+
+    if (isAntarctica) {
+      return [
+        {
+          title: 'IAATO Environmental Guidelines',
+          icon: 'shield',
+          content: [
+            'Maintain a strict 5-meter distance from penguins and marine wildlife at all times',
+            'Thoroughly biosecure boots and clothing in Virkon disinfectant wash before and after every landing',
+            'Take nothing but photographs, leave nothing but footprints in the snow',
+            'Never leave any equipment, food, or gear unattended on shore',
+          ],
+        },
+        {
+          title: 'Polar Navigation & Clothing Protocol',
+          icon: 'users',
+          content: [
+            'Dress in three breathable layers: moisture-wicking wool base, fleece mid-layer, and waterproof shell',
+            'Wear high muck boots with thick wool socks for wet zodiac beach landings',
+            'Secure cameras and phones with wrist leashes to prevent accidental loss into the icy ocean',
+            'Keep spare camera batteries warm in interior pockets as sub-zero cold drains charge rapidly',
+          ],
+        },
+        {
+          title: 'Drake Passage Sea Preparedness',
+          icon: 'piggy-bank',
+          content: [
+            'Consult the ship medical doctor for seasickness patches or medication before hitting open waters',
+            'Always maintain three points of contact when moving around the vessel during heavy swells',
+            'Store all loose cabin items securely in drawers or latch locks before sleeping',
+            'Take advantage of early breakfast broths to settle equilibrium during sea transit',
+          ],
+        },
+        {
+          title: 'Polar Expedition Terminology',
+          icon: 'message-circle',
+          content: [
+            'Zodiac: Heavy-duty inflatable motorized launch used for iceberg cruising and shore landings',
+            'Brash Ice: Accumulation of floating ice fragments less than 2 meters across',
+            'Bergy Bit: Large chunk of floating glacier ice rising 1 to 5 meters above sea level',
+            'Calving: The dramatic breaking off of massive ice masses from glacier faces into the sea',
+          ],
+        },
+      ];
+    }
+
+    if (isItaly) {
+      return [
+        {
+          title: 'Amalfi Coast Etiquette & Dining',
+          icon: 'users',
+          content: [
+            'Order cappuccino only in the morning before 11:00 AM; drink espresso (caffè) after meals',
+            'Coperto is a standard bread and table charge (typically €2-€4 per person) on your bill',
+            'Dress elegantly for evening dinners in coastal trattorias and seaside restaurants',
+            'Greet shopkeepers and restaurant hosts with "Buongiorno" or "Buonasera"',
+          ],
+        },
+        {
+          title: 'Highway & Transit Navigation',
+          icon: 'shield',
+          content: [
+            'Use SITA coastal buses or passenger ferries (Travelmar) to avoid extreme parking fees and hairpin road congestion',
+            'Be prepared for narrow vertical stone staircases; wear sturdy walking shoes with rubber grip',
+            'Verify ferry schedules during high swells as morning sea conditions determine docking',
+            'Reserve dinner and clifftop sunset tables at least 24 to 48 hours in advance during peak season',
+          ],
+        },
+        {
+          title: 'Terroir & Savoring Secrets',
+          icon: 'piggy-bank',
+          content: [
+            'Look for IGP and DOP certified Sorrento lemons, Cetara colatura, and Gragnano pasta',
+            'Take the water ferry between Amalfi and Positano for the world’s finest cliffside perspective',
+            'Purchase ceramics directly from artisan ateliers in Vietri sul Mare for authentic handcrafts',
+            'Drink cold Limoncello served in frozen ceramic copitas as a digestive after seafood dinners',
+          ],
+        },
+        {
+          title: 'Helpful Italian Phrases',
+          icon: 'message-circle',
+          content: [
+            'Un caffè per favore (An espresso, please)',
+            'Il conto per favore (The check, please)',
+            'Dov\'è la fermata dell\'autobus? (Where is the bus stop?)',
+            'Grazie mille / Buona giornata (Thank you very much / Have a nice day)',
+          ],
+        },
+      ];
+    }
+
+    if (isIndia) {
+      return [
+        {
+          title: 'Himalayan & Regional Cultural Respect',
+          icon: 'users',
+          content: [
+            'Always walk clockwise (Pradakshina) around Buddhist chortens, stupas, and monastery prayer wheels',
+            'Remove shoes before entering monastery prayer halls (dukhang) and Hindu temples',
+            'Never point your feet or soles towards altars, lamas, or sacred statues while seated',
+            'Ask polite permission before photographing local residents or monk ceremonies',
+          ],
+        },
+        {
+          title: 'High-Altitude & Highway Preparedness',
+          icon: 'shield',
+          content: [
+            'Acclimatize for at least 48 hours when ascending above 3,000 meters; drink 3-4 liters of water daily',
+            'Avoid heavy physical exertion on Day 1; sip local warm seabuckthorn tea or ginger water',
+            'Carry cash as mountain ATMs in remote high-altitude corridors frequently experience power outages',
+            'Download offline maps and keep a physical photocopy of identification documents for border checkposts',
+          ],
+        },
+        {
+          title: 'Sustainable Himalayan Travel',
+          icon: 'piggy-bank',
+          content: [
+            'Refill purified water at local eco-centers rather than purchasing single-use plastic bottles',
+            'Eat at family-run local dhabas and homestays to support the mountain village economy directly',
+            'Pack out all non-biodegradable waste from remote lakes like Chandratal',
+            'Respect mountain pass prayer flags (lungta) by not stepping on or removing them',
+          ],
+        },
+        {
+          title: 'Helpful Local Greetings',
+          icon: 'message-circle',
+          content: [
+            'Julley! (Hello / Goodbye / Thank you in Himalayan regions)',
+            'Namaste (Traditional respectful Indian greeting)',
+            'Kripya (Please)',
+            'Yeh kitne ka hai? (How much is this?)',
+          ],
+        },
+      ];
+    }
+
+    if (isJapan) {
+      return [
+        {
+          title: 'Japanese Customs & Etiquette',
+          icon: 'users',
+          content: [
+            'Bow politely when greeting; avoid tipping as exceptional service is standard and tips can cause confusion',
+            'Remove your shoes when stepping onto tatami mats or entering traditional ryokans',
+            'Never stick chopsticks vertically into a bowl of rice, as this resembles a Buddhist funeral rite',
+            'Speak in quiet tones on trains and public transportation; refrain from phone conversations',
+          ],
+        },
+        {
+          title: 'Smooth Transit & Daily Habits',
+          icon: 'shield',
+          content: [
+            'Load a Suica or Pasmo digital transit card on your phone for seamless subway and bus tap-and-go',
+            'Public trash cans are rare; carry a small bag to hold your personal rubbish until you return to your hotel',
+            'Carry cash (Japanese Yen) as many historic temples, shrines, and traditional soba shops do not accept cards',
+            'Wash and rinse thoroughly at the sit-down washing station before stepping into an onsen hot spring bath',
+          ],
+        },
+        {
+          title: 'Culinary & Shopping Secrets',
+          icon: 'piggy-bank',
+          content: [
+            'Department store basement food halls (depachika) offer world-class gourmet bento boxes at evening discounts',
+            'Slurping ramen and soba noodles is encouraged—it aerates the broth and signals appreciation to the chef',
+            'Visit popular shrines like Fushimi Inari at dawn (6:30 AM) to experience the torii gates in serene tranquility',
+            'Always receive and present money or business cards with both hands as a mark of respect',
+          ],
+        },
+        {
+          title: 'Essential Japanese Phrases',
+          icon: 'message-circle',
+          content: [
+            'Arigatou gozaimasu (Thank you very much)',
+            'Sumimasen (Excuse me / Sorry)',
+            'Kore o kudasai (Please give me this)',
+            'O-kaikei o onegaishimasu (The bill, please)',
+          ],
+        },
+      ];
+    }
+
+    if (isIndonesia) {
+      return [
+        {
+          title: 'Balinese Hindu & Island Etiquette',
+          icon: 'users',
+          content: [
+            'Wear a sarong and sash when entering any temple complex; both men and women must cover their shoulders and knees',
+            'Be mindful not to step on small coconut-leaf flower offerings (Canang Sari) placed on sidewalks and doorsteps',
+            'Always use your right hand when giving or receiving items, money, or food',
+            'Never touch anyone on the head, as it is considered the most sacred part of the body in Balinese belief',
+          ],
+        },
+        {
+          title: 'Island Health & Transport Tips',
+          icon: 'shield',
+          content: [
+            'Drink only bottled or filtered water; avoid tap water and stay well-hydrated in the tropical climate',
+            'Wear a certified helmet if renting a scooter, and verify you hold an International Driving Permit (IDP)',
+            'Secure sunglasses, hats, and loose jewelry before entering the Monkey Forest as macaques can snatch shiny objects',
+            'Use reputable blue-metered taxis (Bluebird) or Grab apps for transparent pricing',
+          ],
+        },
+        {
+          title: 'Local Craft & Market Traditions',
+          icon: 'piggy-bank',
+          content: [
+            'Bargaining is expected at traditional outdoor markets (like Sukawati or Ubud Market); negotiate with a smile and warmth',
+            'Support local organic warungs for the freshest traditional meals at a fraction of tourist restaurant prices',
+            'Arrive at Uluwatu Temple by 4:45 PM to secure good stadium seats for the famous 6:00 PM sunset Kecak dance',
+            'Tip around 5-10% at independent cafes and restaurants if a service charge is not already included on the bill',
+          ],
+        },
+        {
+          title: 'Helpful Indonesian Phrases',
+          icon: 'message-circle',
+          content: [
+            'Terima kasih (Thank you)',
+            'Sama-sama (You are welcome)',
+            'Berapa harganya? (How much does this cost?)',
+            'Tolong (Please / Help)',
+          ],
+        },
+      ];
+    }
+
+    // Default global insights
     return [
       {
-        title: 'Local Etiquette',
+        title: 'Cultural Etiquette',
         icon: 'users',
         content: [
-          'Greet locals with a smile and basic phrases in their language',
-          'Dress modestly when visiting religious sites',
-          'Tipping customs vary - research local expectations',
-          'Ask permission before taking photos of people',
+          'Greet locals respectfully and learn basic courteous greetings in the local language',
+          'Dress appropriately and modestly when visiting religious sites and traditional sanctuaries',
+          'Ask permission before photographing residents, artisans, and sacred ceremonies',
+          'Observe local tipping customs and service standards',
         ],
       },
       {
-        title: 'Safety Tips',
+        title: 'Travel Safety & Preparedness',
         icon: 'shield',
         content: [
-          'Keep copies of important documents in separate locations',
-          'Use registered taxis or ride-sharing apps',
-          'Stay aware of your surroundings in crowded areas',
-          'Register with your embassy if staying long-term',
+          'Store digital copies of passports, visas, and insurance cards in secure cloud backup',
+          'Use licensed, registered public transit or vetted ride-hailing services',
+          'Keep emergency contact numbers and local embassy information readily accessible',
+          'Maintain situational awareness in bustling tourist centers and transportation hubs',
         ],
       },
       {
-        title: 'Money-Saving Tips',
+        title: 'Budget & Terroir Secrets',
         icon: 'piggy-bank',
         content: [
-          'Eat where locals eat for authentic and affordable meals',
-          'Use public transportation instead of taxis',
-          'Book attractions online in advance for discounts',
-          'Visit free museums and attractions on designated days',
+          'Dine where local residents and neighborhood workers eat for authentic culinary discovery',
+          'Book premier museum and archaeological site permits in advance to avoid long ticket lines',
+          'Utilize regional rail and public transit passes for cost-efficient transportation',
+          'Shop at traditional farmers markets for fresh seasonal fruits and artisanal provisions',
         ],
       },
       {
-        title: 'Essential Phrases',
+        title: 'Essential Universal Phrases',
         icon: 'message-circle',
         content: [
-          'Hello / Goodbye',
-          'Thank you / Please',
-          'How much does this cost?',
-          'Where is...?',
-          'I need help',
+          'Hello / Good day',
+          'Thank you very much / Please',
+          'Where is the station / entrance?',
+          'How much is this, please?',
         ],
       },
     ];
