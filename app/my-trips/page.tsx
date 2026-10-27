@@ -271,13 +271,13 @@ function MyTripsPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex -space-x-2">
                           {trip.members.map((member) => (
-                            <img
+                            <div
                               key={member.userId || member.email}
-                              src={member.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80'}
-                              alt={member.name}
                               title={`${member.name} (${member.role})`}
-                              className="w-7 h-7 rounded-full object-cover border-2 border-white shadow-xs"
-                            />
+                              className="w-7 h-7 rounded-full bg-[#244536] text-white flex items-center justify-center text-xs font-serif font-bold border-2 border-white shadow-xs"
+                            >
+                              {member.name?.charAt(0).toUpperCase() || 'M'}
+                            </div>
                           ))}
                         </div>
                         <span className="text-xs text-[#292D2A]/70 font-mono">

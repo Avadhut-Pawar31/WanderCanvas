@@ -120,11 +120,9 @@ export default function TripWorkspacePage() {
             <span className="font-mono text-[11px]">Synced Workspace</span>
           </div>
           <div className="flex items-center gap-2 pl-2 border-l border-[#244536]/10">
-            <img
-              src={activeUser.avatar}
-              alt={activeUser.name}
-              className="w-7 h-7 rounded-full object-cover border border-[#244536]/20"
-            />
+            <div className="w-7 h-7 bg-[#244536] text-white rounded-full flex items-center justify-center font-serif font-bold text-xs shadow-xs border border-white">
+              {activeUser.name?.charAt(0).toUpperCase() || 'A'}
+            </div>
             <span className="text-xs font-medium text-[#292D2A] hidden sm:inline">
               {activeUser.name}
             </span>
