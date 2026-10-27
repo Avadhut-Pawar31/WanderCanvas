@@ -255,7 +255,7 @@ export default function ExplorePage() {
       hygieneScore: 93,
       hygieneStatus: 'ASI & UNESCO Maintained',
       bestSeason: 'Oct - March',
-      image: 'https://images.unsplash.com/photo-1600100397608-f010f4439c2c?w=800&q=85',
+      image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800&q=85',
       description: 'Surreal boulder-strewn landscape hosting the 14th-century capital of the Vijayanagara Empire along the ancient Tungabhadra River.',
       highlights: ['Stone Chariot at Vittala Temple', 'Virupaksha Temple', 'Matanga Hill Sunrise'],
     },
