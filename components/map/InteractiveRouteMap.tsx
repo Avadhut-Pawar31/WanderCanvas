@@ -31,9 +31,74 @@ export function InteractiveRouteMap({
   const leafletMapRef = useRef<HTMLDivElement>(null);
   const leafletInstanceRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
+  const userMarkerRef = useRef<any>(null);
 
   const [mapMode, setMapMode] = useState<'street' | 'satellite' | 'canvas'>('street');
   const [isLeafletReady, setIsLeafletReady] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Locate Current Position with Permission Handling
+  const handleLocateMe = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false);
+        const { latitude, longitude } = position.coords;
+        const coords = { lat: latitude, lng: longitude };
+        setUserLocation(coords);
+
+        if (leafletInstanceRef.current) {
+          import('leaflet').then((L) => {
+            if (userMarkerRef.current) {
+              userMarkerRef.current.remove();
+            }
+
+            const userIcon = L.divIcon({
+              className: 'custom-leaflet-marker',
+              html: `
+                <div style="position: relative; width: 26px; height: 26px;">
+                  <div style="position: absolute; inset: -4px; background: rgba(37, 99, 235, 0.35); border-radius: 50%; animation: pulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+                  <div style="background-color: #2563EB; color: white; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    📍
+                  </div>
+                </div>
+              `,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            });
+
+            const marker = L.marker([latitude, longitude], { icon: userIcon })
+              .addTo(leafletInstanceRef.current)
+              .bindPopup('<b>Current Location</b><br/>You are here')
+              .openPopup();
+
+            userMarkerRef.current = marker;
+            leafletInstanceRef.current.flyTo([latitude, longitude], 13, { duration: 1.2 });
+          });
+        }
+        toast.success('Position located on route map!');
+      },
+      (error) => {
+        setIsLocating(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          toast.error('Location permission denied. Please allow location access in your browser settings.');
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          toast.error('Location information is currently unavailable.');
+        } else if (error.code === error.TIMEOUT) {
+          toast.error('Location request timed out. Please try again.');
+        } else {
+          toast.error('Unable to retrieve location.');
+        }
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
 
   // Initialize Free Interactive Map (Leaflet + OpenStreetMap & Esri Satellite)
   useEffect(() => {
@@ -262,8 +327,20 @@ export function InteractiveRouteMap({
           </div>
         </div>
 
-        {/* 3-Way Mode Switcher: Street / Satellite / Canvas */}
+        {/* 3-Way Mode Switcher & Current Location: Street / Satellite / Canvas */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Locate Current Position Button */}
+          <button
+            type="button"
+            onClick={handleLocateMe}
+            disabled={isLocating}
+            title="Locate Current Position"
+            className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-[#244536]/15 hover:border-[#244536] text-[#244536] shadow-sm transition flex items-center gap-1.5 text-xs font-semibold"
+          >
+            <Compass className={`w-3.5 h-3.5 text-[#244536] ${isLocating ? 'animate-spin' : ''}`} />
+            <span>{isLocating ? 'Locating...' : 'Locate Me'}</span>
+          </button>
+
           <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-[#244536]/10 shadow-sm flex items-center gap-1">
             <button
               type="button"
