@@ -521,6 +521,7 @@ export function TripWorkspaceView({
           <div className="max-w-4xl mx-auto">
             <AITravelAssistantPanel
               trip={trip}
+              candidatePlaces={candidatePlaces}
               onAddStop={handleAddStop}
               onSuggestStop={handleSuggestStop}
               onInspectPlace={(p) => setInspectingPlace(p)}

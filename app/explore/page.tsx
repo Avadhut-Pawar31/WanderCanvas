@@ -100,16 +100,14 @@ export default function ExplorePage() {
     : destinations.filter(d => d.category === selectedCategory);
 
   const toggleSave = (name: string) => {
-    setSavedNames(prev => {
-      const exists = prev.includes(name);
-      if (exists) {
-        toast.success(`Removed ${name} from saved`);
-        return prev.filter(n => n !== name);
-      } else {
-        toast.success(`Saved ${name} to your collection!`);
-        return [...prev, name];
-      }
-    });
+    const exists = savedNames.includes(name);
+    if (exists) {
+      setSavedNames(prev => prev.filter(n => n !== name));
+      toast.success(`Removed ${name} from saved`);
+    } else {
+      setSavedNames(prev => [...prev, name]);
+      toast.success(`Saved ${name} to your collection!`);
+    }
   };
 
   return (

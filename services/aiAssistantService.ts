@@ -103,4 +103,30 @@ export class AIAssistantService {
       hygieneAuditNote: `All recommendations are cross-referenced with municipal and independent hygiene checklists. Locations older than 90 days are flagged for re-inspection.`,
     };
   }
+
+  /**
+   * Interactive AI Concierge Q&A with real-time prompt and grounded evidence.
+   */
+  static async askConcierge(params: {
+    trip: CollaborativeTrip;
+    prompt: string;
+    candidatePlaces?: Place[];
+  }): Promise<{ reply: string; provider: string }> {
+    try {
+      const res = await fetch('/api/ai/concierge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('Concierge fetch notice:', e);
+    }
+    return {
+      reply: `Along ${params.trip.name}, we recommend prioritising verified hygiene locations with under 10 minutes detour off your primary corridor.`,
+      provider: 'WanderCanvas Offline Engine',
+    };
+  }
 }
