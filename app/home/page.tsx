@@ -88,12 +88,12 @@ function HomeContent() {
                   <ArrowRight className="w-4 h-4" />
                 </Button>
 
-                <Link href="/workspace/trip-amalfi-classic">
+                <Link href="/workspace/trip-mahabaleshwar-kaas">
                   <Button
                     variant="secondary"
                     className="w-full sm:w-auto bg-white text-[#244536] border border-[#244536]/20 hover:bg-white/80 rounded-xl px-6 h-12 text-sm font-semibold shadow-xs"
                   >
-                    Open Amalfi Coast Demo Trip
+                    Explore Mahabaleshwar Journey
                   </Button>
                 </Link>
               </div>
@@ -108,31 +108,31 @@ function HomeContent() {
             >
               <div className="relative h-56 rounded-2xl overflow-hidden bg-[#E7ECE5]">
                 <img
-                  src="https://images.unsplash.com/photo-1533105079780-92b9be482077?w=800&q=85"
-                  alt="Coastal Corridor"
+                  src="https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=800&q=85"
+                  alt="Mahabaleshwar & Kaas Plateau Sahyadri Corridor"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-3 left-3 px-3 py-1 bg-[#244536]/90 backdrop-blur-sm rounded-lg text-white text-[11px] font-mono uppercase tracking-wider font-semibold">
-                  Featured Corridor
+                  Featured Sahyadri Corridor
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-serif text-xl font-bold text-[#244536]">
-                    Naples to Amalfi Coast
+                    Pune to Mahabaleshwar &amp; Kaas
                   </h3>
                   <span className="text-xs font-mono font-semibold text-[#C78363] px-2.5 py-1 bg-[#C78363]/10 rounded-lg">
-                    63.4 km • 84 min
+                    121.5 km • 175 min
                   </span>
                 </div>
                 <p className="text-xs text-[#292D2A]/70 leading-relaxed">
-                  Active corridor with 3 verified clean rest stops, cliffside bakeries, and collaborative voting enabled for group travelers.
+                  Scenic Western Ghats road trip via Wai &amp; Panchgani, with verified clean restrooms at Mapro Garden, lakeside viewpoints, and UNESCO Kaas floral plateau.
                 </p>
                 <div className="pt-2 flex items-center justify-between text-xs border-t border-[#244536]/8">
                   <span className="text-[#292D2A]/60">4 Active Travelers</span>
                   <Link
-                    href="/workspace/trip-amalfi-classic"
+                    href="/workspace/trip-mahabaleshwar-kaas"
                     className="text-[#244536] font-semibold hover:underline flex items-center gap-1"
                   >
                     View Live Workspace &rarr;

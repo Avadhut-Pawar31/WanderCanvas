@@ -28,7 +28,7 @@ function MyTripsPage() {
   const [trips, setTrips] = useState<CollaborativeTrip[]>(() => {
     let all = CollaborationService.getAllTrips();
     if (all.length === 0) {
-      const demo = CollaborationService.getTripById('trip-amalfi-classic');
+      const demo = CollaborationService.getTripById('trip-mahabaleshwar-kaas');
       if (demo) {
         all = [demo];
       }
@@ -45,14 +45,14 @@ function MyTripsPage() {
   // New trip modal state
   const [isNewTripModalOpen, setIsNewTripModalOpen] = useState(false);
   const [newTripData, setNewTripData] = useState({
-    name: 'Tuscan Wine & Medieval Towns',
-    origin: 'Florence, Italy',
-    destination: 'Siena, Italy',
-    startDate: '2026-06-10',
-    endDate: '2026-06-16',
-    budgetTotal: 1800,
+    name: 'Mahabaleshwar & Sahyadri Foothills',
+    origin: 'Pune, Maharashtra',
+    destination: 'Mahabaleshwar & Kaas Plateau, Maharashtra',
+    startDate: '2026-09-18',
+    endDate: '2026-09-22',
+    budgetTotal: 15000,
     transportMode: 'driving' as TravelMode,
-    travelersCount: 3,
+    travelersCount: 4,
   });
 
   const loadTrips = useCallback(() => {
@@ -306,12 +306,12 @@ function MyTripsPage() {
             <div className="flex items-center justify-center gap-3">
               <Button
                 onClick={() => {
-                  const demo = CollaborationService.getTripById('trip-amalfi-classic');
+                  const demo = CollaborationService.getTripById('trip-mahabaleshwar-kaas');
                   if (demo) router.push(`/workspace/${demo.id}`);
                 }}
                 className="bg-[#244536] text-white hover:bg-[#1a3328] text-xs font-mono uppercase tracking-wider"
               >
-                Load Amalfi Demo Trip
+                Load Mahabaleshwar Demo Trip
               </Button>
             </div>
           </div>

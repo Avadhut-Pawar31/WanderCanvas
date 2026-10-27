@@ -204,7 +204,7 @@ export default function SavedPlacesPage() {
 
                     <div className="flex items-center gap-1.5">
                       <Link
-                        href={`/workspace/trip-amalfi-classic`}
+                        href="/my-trips"
                         className="inline-flex items-center gap-1 text-xs font-medium text-[#244536] bg-[#244536]/8 hover:bg-[#244536] hover:text-white py-1.5 px-3 rounded-lg transition"
                       >
                         <span>Add to Route</span>

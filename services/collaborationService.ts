@@ -93,9 +93,11 @@ export class CollaborationService {
    * Get all trips stored in local workspace.
    */
   static getAllTrips(): CollaborativeTrip[] {
+    const seedTrips = this.getSeedTrips();
+
     if (typeof window === 'undefined') {
       if (!this.memoryTrips) {
-        this.memoryTrips = this.getSeedTrips();
+        this.memoryTrips = seedTrips;
       }
       return this.memoryTrips;
     }
@@ -103,13 +105,32 @@ export class CollaborationService {
     try {
       const data = localStorage.getItem(this.STORAGE_KEY);
       if (!data) {
-        const seed = this.getSeedTrips();
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(seed));
-        return seed;
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(seedTrips));
+        return seedTrips;
       }
-      return JSON.parse(data);
+
+      const parsed: CollaborativeTrip[] = JSON.parse(data);
+      // Ensure essential seed trips (Mahabaleshwar & Amalfi) are always available
+      let modified = false;
+      seedTrips.forEach((seed) => {
+        const idx = parsed.findIndex((p) => p.id === seed.id);
+        if (idx === -1) {
+          parsed.unshift(seed);
+          modified = true;
+        } else if (seed.id === 'trip-mahabaleshwar-kaas') {
+          // Keep Mahabaleshwar route & stops fresh and geographically verified
+          parsed[idx] = seed;
+          modified = true;
+        }
+      });
+
+      if (modified) {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(parsed));
+      }
+
+      return parsed;
     } catch {
-      return this.getSeedTrips();
+      return seedTrips;
     }
   }
 
@@ -239,8 +260,25 @@ export class CollaborationService {
    * Retrieve single trip by ID.
    */
   static getTripById(id: string): CollaborativeTrip | null {
+    if (!id) return null;
     const trips = this.getAllTrips();
-    return trips.find(t => t.id === id) || null;
+    const found = trips.find(t => t.id === id);
+    if (found) return found;
+
+    // Direct check in seed trips
+    const seed = this.getSeedTrips().find(t => t.id === id);
+    if (seed) return seed;
+
+    // Fallbacks for common aliases
+    const lower = id.toLowerCase();
+    if (lower === 'demo' || lower.includes('mahabaleshwar') || lower.includes('kaas')) {
+      return this.getSeedTrips().find(t => t.id === 'trip-mahabaleshwar-kaas') || null;
+    }
+    if (lower.includes('amalfi')) {
+      return this.getSeedTrips().find(t => t.id === 'trip-amalfi-classic') || null;
+    }
+
+    return null;
   }
 
   /**
@@ -659,6 +697,201 @@ export class CollaborationService {
   private static getSeedTrips(): CollaborativeTrip[] {
     return [
       {
+        id: 'trip-mahabaleshwar-kaas',
+        name: 'Mahabaleshwar & Kaas Plateau Sahyadri Discovery',
+        description: 'Scenic Western Ghats exploration from Pune through Wai, Panchgani, Mahabaleshwar viewpoints, and the UNESCO Kaas floral plateau.',
+        coverImage: 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=1000&q=85',
+        origin: 'Pune (Swargate / Deccan)',
+        originCoordinates: { lat: 18.5204, lng: 73.8567 },
+        destination: 'Mahabaleshwar & Kaas Plateau, Maharashtra',
+        destinationCoordinates: { lat: 17.9237, lng: 73.6586 },
+        startDate: '2026-09-18',
+        endDate: '2026-09-22',
+        budget: 18000,
+        travelMode: 'driving',
+        groupSize: 4,
+        preferences: ['Western Ghats Views', 'UNESCO Heritage', 'Clean Washrooms', 'Strawberry Farms'],
+        washroomPreference: 'verified_only',
+        ownerId: 'user-demo-1',
+        route: {
+          origin: {
+            name: 'Pune Swargate Corridor',
+            address: 'Swargate Transit Hub, Pune, Maharashtra, India',
+            coordinates: { lat: 18.5204, lng: 73.8567 },
+          },
+          destination: {
+            name: 'Mahabaleshwar & Kaas Plateau',
+            address: 'Satara District, Maharashtra, India',
+            coordinates: { lat: 17.9237, lng: 73.6586 },
+          },
+          distanceKm: 121.5,
+          durationMinutes: 175,
+          coordinatesPath: [
+            [18.5204, 73.8567],
+            [18.4485, 73.8580],
+            [18.1365, 74.0322],
+            [17.9940, 74.0205],
+            [17.9490, 73.8920],
+            [17.9350, 73.8400],
+            [17.9242, 73.8051],
+            [17.9228, 73.7467],
+            [17.9255, 73.6644],
+            [17.9237, 73.6586],
+            [17.7208, 73.8189],
+          ],
+          travelMode: 'driving',
+          summary: 'Via NH48 Highway and SH72 Wai-Panchgani Ghat Scenic Corridor',
+          waypoints: [
+            {
+              id: 'stop-mh-1',
+              name: 'Mapro Garden',
+              address: 'Mahabaleshwar-Panchgani Highway, Gureghar',
+              coordinates: { lat: 17.9228, lng: 73.7467 },
+              category: 'rest_stop',
+              detourKm: 0.1,
+              detourMinutes: 1,
+              order: 1,
+              suggestedBy: 'Rohan Deshmukh',
+            },
+            {
+              id: 'stop-mh-2',
+              name: 'Venna Lake Municipal Pier',
+              address: 'Panchgani-Mahabaleshwar Road, Venna Lake',
+              coordinates: { lat: 17.9255, lng: 73.6644 },
+              category: 'washroom',
+              detourKm: 0.2,
+              detourMinutes: 1,
+              order: 2,
+              suggestedBy: 'Priyanka Joshi',
+            },
+            {
+              id: 'stop-mh-3',
+              name: 'Arthur\'s Seat Point',
+              address: 'Arthur\'s Seat Road, Mahabaleshwar',
+              coordinates: { lat: 17.9854, lng: 73.6169 },
+              category: 'attraction',
+              detourKm: 11.2,
+              detourMinutes: 24,
+              order: 3,
+              suggestedBy: 'Amit Patil',
+            },
+            {
+              id: 'stop-mh-4',
+              name: 'Kaas Pathar (Plateau of Flowers)',
+              address: 'Kaas Road, Satara District, Maharashtra',
+              coordinates: { lat: 17.7208, lng: 73.8189 },
+              category: 'attraction',
+              detourKm: 34.0,
+              detourMinutes: 52,
+              order: 4,
+              suggestedBy: 'Rohan Deshmukh',
+            },
+          ],
+        },
+        members: [
+          {
+            userId: 'user-demo-1',
+            name: 'Rohan Deshmukh',
+            email: 'rohan@wandercanvas.com',
+            role: 'owner',
+            joinedAt: '2026-08-10T10:00:00Z',
+          },
+          {
+            userId: 'user-demo-2',
+            name: 'Priyanka Joshi',
+            email: 'priyanka@wandercanvas.com',
+            role: 'editor',
+            joinedAt: '2026-08-11T14:30:00Z',
+          },
+          {
+            userId: 'user-demo-3',
+            name: 'Amit Patil',
+            email: 'amit@wandercanvas.com',
+            role: 'editor',
+            joinedAt: '2026-08-12T09:15:00Z',
+          },
+        ],
+        invitationCode: 'MAHA-26',
+        stops: [
+          {
+            id: 'stop-mh-1',
+            name: 'Mapro Garden',
+            address: 'Mahabaleshwar-Panchgani Highway, Gureghar',
+            coordinates: { lat: 17.9228, lng: 73.7467 },
+            category: 'rest_stop',
+            detourKm: 0.1,
+            detourMinutes: 1,
+            order: 1,
+            suggestedBy: 'Rohan Deshmukh',
+          },
+          {
+            id: 'stop-mh-2',
+            name: 'Venna Lake Municipal Pier',
+            address: 'Panchgani-Mahabaleshwar Road, Venna Lake',
+            coordinates: { lat: 17.9255, lng: 73.6644 },
+            category: 'washroom',
+            detourKm: 0.2,
+            detourMinutes: 1,
+            order: 2,
+            suggestedBy: 'Priyanka Joshi',
+          },
+        ],
+        suggestions: [
+          {
+            id: 'sug-mh-1',
+            tripId: 'trip-mahabaleshwar-kaas',
+            place: {
+              id: 'place-mh-bagicha',
+              name: 'Bagicha Corner',
+              category: 'restaurant',
+              address: 'Wai-Panchgani Road, Near Neeta Bus Stand',
+              city: 'Mahabaleshwar',
+              coordinates: { lat: 17.9268, lng: 73.6612 },
+              hygieneStatus: 'officially_inspected',
+              hygieneScore: 94,
+              hygieneConfidence: 'high',
+              washroomAvailability: 'customers_only',
+              waterAvailable: true,
+              soapAvailable: true,
+              accessibleFacility: true,
+              detourKm: 0.4,
+              detourMinutes: 2,
+            },
+            suggestedBy: 'user-demo-2',
+            suggestedByName: 'Priyanka Joshi',
+            suggestedAt: '2026-08-14T11:20:00Z',
+            reason: 'Famous for fresh strawberry with thick cream and hot corn pattice on the lake road.',
+            votes: [
+              { userId: 'user-demo-1', userName: 'Rohan Deshmukh', vote: 1 },
+              { userId: 'user-demo-2', userName: 'Priyanka Joshi', vote: 1 },
+            ],
+            status: 'accepted',
+          },
+        ],
+        messages: [
+          {
+            id: 'msg-mh-1',
+            tripId: 'trip-mahabaleshwar-kaas',
+            senderId: 'user-demo-1',
+            senderName: 'Rohan Deshmukh',
+            content: 'Welcome team! Mapped our Pune -> Wai -> Panchgani -> Mahabaleshwar -> Kaas Pathar Sahyadri drive. Please vote on the Mapro lunch and clean restroom stops!',
+            timestamp: '2026-08-12T10:00:00Z',
+            type: 'text',
+          },
+          {
+            id: 'msg-mh-2',
+            tripId: 'trip-mahabaleshwar-kaas',
+            senderId: 'user-demo-2',
+            senderName: 'Priyanka Joshi',
+            content: 'I verified that Mapro Garden and Venna Lake Municipal Pier have clean touchless facilities. Also pre-booked Kaas Pathar floral permits for September!',
+            timestamp: '2026-08-12T10:15:00Z',
+            type: 'text',
+          },
+        ],
+        createdAt: '2026-08-10T09:00:00Z',
+        updatedAt: '2026-08-15T12:00:00Z',
+      },
+      {
         id: 'trip-amalfi-classic',
         name: 'Amalfi Coast Coastal & Hygiene Odyssey',
         description: 'Collaborative road trip along the Tyrrhenian coast with verified clean restrooms and cliffside villas.',
@@ -706,18 +939,18 @@ export class CollaborationService {
           summary: 'Via Autostrada A3 and SS163 Amalfitana Scenic Highway',
           waypoints: [
             {
-              id: 'stop-1',
-              name: 'Autogrill Cantagallo Ovest (A1 Rest Stop)',
-              address: 'Autostrada A1 km 198',
-              coordinates: { lat: 44.4712, lng: 11.2741 },
+              id: 'stop-amalfi-1',
+              name: 'Pompeii Rest Area & Archaeological Park',
+              address: 'Via Plinio, 80045 Pompei NA, Italy',
+              coordinates: { lat: 40.7490, lng: 14.4842 },
               category: 'rest_stop',
-              detourKm: 0.2,
+              detourKm: 0.3,
               detourMinutes: 2,
               order: 1,
               suggestedBy: 'Elena Rostova',
             },
             {
-              id: 'stop-2',
+              id: 'stop-amalfi-2',
               name: 'Bar Pasticceria Sal De Riso',
               address: 'Via Santa Maria della Neve 80, Minori',
               coordinates: { lat: 40.6514, lng: 14.6289 },
@@ -768,18 +1001,18 @@ export class CollaborationService {
         invitationCode: 'AMALFI-26',
         stops: [
           {
-            id: 'stop-1',
-            name: 'Autogrill Cantagallo Ovest (A1 Rest Stop)',
-            address: 'Autostrada A1 km 198',
-            coordinates: { lat: 44.4712, lng: 11.2741 },
+            id: 'stop-amalfi-1',
+            name: 'Pompeii Rest Area & Archaeological Park',
+            address: 'Via Plinio, 80045 Pompei NA, Italy',
+            coordinates: { lat: 40.7490, lng: 14.4842 },
             category: 'rest_stop',
-            detourKm: 0.2,
+            detourKm: 0.3,
             detourMinutes: 2,
             order: 1,
             suggestedBy: 'Elena Rostova',
           },
           {
-            id: 'stop-2',
+            id: 'stop-amalfi-2',
             name: 'Bar Pasticceria Sal De Riso',
             address: 'Via Santa Maria della Neve 80, Minori',
             coordinates: { lat: 40.6514, lng: 14.6289 },
@@ -796,7 +1029,7 @@ export class CollaborationService {
             tripId: 'trip-amalfi-classic',
             place: {
               id: 'place-amalfi-3',
-              name: 'Hotel Santa Caterina Restrooms & Lounge',
+              name: 'Hotel Santa Caterina',
               category: 'hotel',
               address: 'Via Stradone 9, Amalfi',
               city: 'Amalfi',

@@ -161,7 +161,7 @@ export default function LandingPage() {
               Preview
             </a>
             <Link 
-              href="/workspace/trip-amalfi-classic"
+              href="/workspace/trip-mahabaleshwar-kaas"
               className="text-sm font-medium text-[#244536] hover:text-[#1B3529] transition-colors flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#C78363]" />
@@ -260,7 +260,7 @@ export default function LandingPage() {
                   Live Preview
                 </a>
                 <Link 
-                  href="/workspace/trip-amalfi-classic"
+                  href="/workspace/trip-mahabaleshwar-kaas"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-base font-serif text-[#244536] py-1 flex items-center gap-2"
                 >
@@ -348,7 +348,7 @@ export default function LandingPage() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => router.push('/workspace/trip-amalfi-classic')}
+                onClick={() => router.push('/workspace/trip-mahabaleshwar-kaas')}
                 className="border border-[#244536]/25 text-[#244536] hover:bg-[#244536]/5 rounded-xl px-6 text-sm font-medium flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-4 h-4 text-[#C78363]" />

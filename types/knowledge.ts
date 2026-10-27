@@ -16,7 +16,7 @@ export interface FoodPriceRange {
   max: number;
   currency: string;
   status: PricingStatus;
-  unit: 'per_person' | 'per_dish' | 'per_portion';
+  unit: 'per_person' | 'per_dish' | 'per_portion' | 'per_item' | 'per_serving' | 'per_set';
   source?: string;
 }
 
@@ -37,7 +37,7 @@ export interface VerifiedAttraction {
   locality: string; // e.g. "Mahabaleshwar-Pune Road, 6 km from town"
   distanceFromCenterKm: number;
   coordinates: { lat: number; lng: number };
-  category: 'waterfall' | 'heritage' | 'viewpoint' | 'nature' | 'food_park' | 'lake' | 'temple' | 'culture' | 'landmark';
+  category: 'waterfall' | 'heritage' | 'viewpoint' | 'nature' | 'food_park' | 'lake' | 'temple' | 'culture' | 'landmark' | 'monument' | 'museum';
   description: string;
   admission: AdmissionPrice;
   recommendedDuration: string;
@@ -66,7 +66,7 @@ export interface VerifiedAccommodation {
   id: string;
   destinationId: string;
   name: string;
-  type: 'resort' | 'hotel' | 'homestay' | 'heritage' | 'villa';
+  type: 'resort' | 'hotel' | 'homestay' | 'heritage' | 'villa' | 'luxury_resort';
   locality: string;
   coordinates: { lat: number; lng: number };
   rateEstimate: AccommodationPriceEstimate;

@@ -286,7 +286,7 @@ export function TripWorkspaceView({
                     <Filter className="w-3.5 h-3.5" />
                     Filters:
                   </span>
-                  {(['all', 'washroom', 'restaurant', 'hotel', 'fuel'] as const).map((cat) => (
+                  {(['all', 'attraction', 'restaurant', 'hotel', 'fuel', 'washroom'] as const).map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setDiscoveryCategory(cat)}
@@ -296,7 +296,7 @@ export function TripWorkspaceView({
                           : 'bg-[#F7F5EF] text-[#5F6761] hover:text-[#244536]'
                       }`}
                     >
-                      {cat === 'all' ? 'All Places' : cat}
+                      {cat === 'all' ? 'All Places' : cat === 'washroom' ? 'Clean Restrooms' : cat === 'attraction' ? 'Attractions' : cat}
                     </button>
                   ))}
                 </div>

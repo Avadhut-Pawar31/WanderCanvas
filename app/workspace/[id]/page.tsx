@@ -20,7 +20,10 @@ export default function TripWorkspacePage() {
     if (!tripId) return null;
     const found = CollaborationService.getTripById(tripId);
     if (found) return found;
-    if (tripId === 'trip-amalfi-classic' || tripId === 'demo') {
+    if (tripId === 'trip-mahabaleshwar-kaas' || tripId === 'demo' || tripId.includes('mahabaleshwar')) {
+      return CollaborationService.getTripById('trip-mahabaleshwar-kaas');
+    }
+    if (tripId === 'trip-amalfi-classic') {
       return CollaborationService.getTripById('trip-amalfi-classic');
     }
     return null;
@@ -56,10 +59,17 @@ export default function TripWorkspacePage() {
           </div>
           <div className="pt-2 flex flex-col gap-2">
             <Button
-              onClick={() => router.push('/workspace/trip-amalfi-classic')}
+              onClick={() => router.push('/workspace/trip-mahabaleshwar-kaas')}
               className="bg-[#244536] text-white hover:bg-[#1a3328] w-full py-2.5 rounded-lg text-sm font-medium transition"
             >
-              Open Amalfi Coast Demo Trip
+              Open Mahabaleshwar &amp; Kaas Plateau Trip
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/my-trips')}
+              className="border-[#244536]/20 text-[#244536] hover:bg-[#E7ECE5] w-full py-2.5 rounded-lg text-sm font-medium transition"
+            >
+              Return to My Trips
             </Button>
             <Link
               href="/my-trips"

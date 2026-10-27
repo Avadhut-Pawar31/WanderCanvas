@@ -114,8 +114,11 @@ export function InteractiveRouteMap({
         leafletInstanceRef.current = null;
       }
 
+      const initialLat = route.origin?.coordinates?.lat ?? route.destination?.coordinates?.lat ?? route.coordinatesPath?.[0]?.[0] ?? 17.9237;
+      const initialLng = route.origin?.coordinates?.lng ?? route.destination?.coordinates?.lng ?? route.coordinatesPath?.[0]?.[1] ?? 73.6586;
+
       const map = L.map(leafletMapRef.current, {
-        center: [route.origin.coordinates.lat || 40.8518, route.origin.coordinates.lng || 14.2681],
+        center: [initialLat, initialLng],
         zoom: 11,
         zoomControl: false,
       });

@@ -45,6 +45,12 @@ function DashboardPage() {
     setIsOpeningWorkspace(true);
     const destName = currentBoard.destination.name.toLowerCase();
 
+    // Check for Mahabaleshwar & Kaas Plateau trip
+    if (destName.includes('mahabaleshwar') || destName.includes('kaas') || destName.includes('panchgani')) {
+      router.push('/workspace/trip-mahabaleshwar-kaas');
+      return;
+    }
+
     // Preserve Italian Amalfi trip as dedicated reference
     if (destName.includes('amalfi') || destName.includes('ravello') || destName.includes('positano')) {
       router.push('/workspace/trip-amalfi-classic');
