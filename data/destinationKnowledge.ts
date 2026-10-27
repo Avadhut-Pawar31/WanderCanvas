@@ -7,6 +7,8 @@ import {
   TravelFormData 
 } from '@/types';
 import { generateId } from '@/lib/utils';
+import { TravelKnowledgeService } from '@/services/travelKnowledgeService';
+
 
 export interface DestinationKnowledgeProfile {
   id: string;
@@ -948,7 +950,176 @@ export const DESTINATION_KNOWLEDGE_BASE: DestinationKnowledgeProfile[] = [
 export function resolveDestinationKnowledge(destinationQuery: string): DestinationKnowledgeProfile {
   const q = destinationQuery.toLowerCase().trim();
 
-  // 1. Direct or keyword match
+  // 0. Primary High-Precision Engine: Check Verified Global Travel Knowledge Base
+  const verified = TravelKnowledgeService.resolveProfile(q);
+  if (verified) {
+    const isMountainOrInland = /mahabaleshwar|spiti|alps|zermatt|himalaya|agra|delhi/i.test(verified.canonicalName);
+
+    const categoryDetails: Record<string, CategoryDetails> = {
+      nature: {
+        category: 'nature',
+        imageUrl: verified.attractions.find(a => a.category === 'nature' || a.category === 'waterfall' || a.category === 'lake')?.imageUrl || verified.heroImage,
+        whyPopular: `Discover the breathtaking landscapes, waterfalls, and scenic topography of ${verified.canonicalName}.`,
+        topPlaces: verified.attractions.filter(a => a.category === 'nature' || a.category === 'waterfall' || a.category === 'lake').slice(0, 3).map(a => ({
+          id: a.id,
+          name: a.name,
+          description: `${a.description} (${a.locality})`,
+          estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
+          duration: a.recommendedDuration,
+        })),
+        estimatedCost: TravelKnowledgeService.formatPrice(20, verified.defaultCurrency),
+        bestTime: verified.bestSeason,
+        recommendedDuration: '2-3 hours per site',
+        tags: verified.attractions[0]?.tags || ['Scenic Views', 'Nature Trails'],
+      },
+      food: {
+        category: 'food',
+        imageUrl: verified.foodExperiences[0]?.imageUrl || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=85',
+        whyPopular: `Experience the authentic terroir and culinary heritage of ${verified.canonicalName}.`,
+        topPlaces: verified.foodExperiences.slice(0, 3).map(f => ({
+          id: f.id,
+          name: f.name,
+          description: `${f.description} (${f.locality})`,
+          estimatedCost: `${TravelKnowledgeService.formatPrice(f.priceRange.min, f.priceRange.currency)} - ${TravelKnowledgeService.formatPrice(f.priceRange.max, f.priceRange.currency)}`,
+          duration: '1-2 hours',
+        })),
+        estimatedCost: `${TravelKnowledgeService.formatPrice(100, verified.defaultCurrency)} - ${TravelKnowledgeService.formatPrice(300, verified.defaultCurrency)}`,
+        bestTime: 'Lunch or Dinner',
+        recommendedDuration: '1.5 hours',
+        tags: ['Local Cuisine', 'Authentic Terroir', 'Fresh Produce'],
+      },
+      architecture: {
+        category: 'architecture',
+        imageUrl: verified.attractions.find(a => a.category === 'heritage' || a.category === 'landmark' || a.category === 'temple')?.imageUrl || verified.heroImage,
+        whyPopular: `Explore the centuries-old fortresses, sacred shrines, and monumental architecture of ${verified.canonicalName}.`,
+        topPlaces: verified.attractions.filter(a => a.category === 'heritage' || a.category === 'landmark' || a.category === 'temple').slice(0, 3).map(a => ({
+          id: a.id,
+          name: a.name,
+          description: `${a.description} (${a.locality})`,
+          estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
+          duration: a.recommendedDuration,
+        })),
+        estimatedCost: TravelKnowledgeService.formatPrice(50, verified.defaultCurrency),
+        bestTime: 'Morning or Golden Hour',
+        recommendedDuration: '2 hours',
+        tags: ['Historic Ramparts', 'Architecture', 'Heritage'],
+      },
+      culture: {
+        category: 'culture',
+        imageUrl: verified.attractions.find(a => a.category === 'culture' || a.category === 'temple')?.imageUrl || verified.heroImage,
+        whyPopular: `Immerse yourself in the authentic traditions, local customs, and folk heritage of ${verified.canonicalName}.`,
+        topPlaces: verified.attractions.filter(a => a.category === 'culture' || a.category === 'temple').slice(0, 3).map(a => ({
+          id: a.id,
+          name: a.name,
+          description: `${a.description} (${a.locality})`,
+          estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
+          duration: a.recommendedDuration,
+        })),
+        estimatedCost: 'Free Access - $10',
+        bestTime: 'Morning (8:00 AM - 11:00 AM)',
+        recommendedDuration: '1.5 hours',
+        tags: ['Living Traditions', 'Community Heritage', 'Culture'],
+      },
+      beaches: {
+        category: isMountainOrInland ? 'viewpoints' : 'beaches',
+        imageUrl: verified.attractions.find(a => a.category === 'viewpoint' || a.category === 'lake')?.imageUrl || verified.heroImage,
+        whyPopular: isMountainOrInland 
+          ? `Panoramic viewpoints, sheer mountain lookouts, and calm inland lakes in ${verified.canonicalName}.`
+          : `Relaxing coastal waterfronts and maritime shores of ${verified.canonicalName}.`,
+        topPlaces: verified.attractions.filter(a => a.category === 'viewpoint' || a.category === 'lake').slice(0, 3).map(a => ({
+          id: a.id,
+          name: a.name,
+          description: `${a.description} (${a.locality})`,
+          estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
+          duration: a.recommendedDuration,
+        })),
+        estimatedCost: 'Free Access',
+        bestTime: 'Sunrise or Sunset',
+        recommendedDuration: '1.5 - 2 hours',
+        tags: isMountainOrInland ? ['Panoramic Overlook', 'Mountain Peak', 'Valley View'] : ['Coastal Shore', 'Waterfront'],
+      },
+      cafes: {
+        category: 'cafes',
+        imageUrl: verified.foodExperiences[0]?.imageUrl || 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=85',
+        whyPopular: `Enjoy regional teas, fruit preserves, and artisan refreshments in ${verified.canonicalName}.`,
+        topPlaces: verified.foodExperiences.slice(0, 3).map(f => ({
+          id: f.id,
+          name: f.name,
+          description: `${f.description} (${f.locality})`,
+          estimatedCost: `${TravelKnowledgeService.formatPrice(f.priceRange.min, f.priceRange.currency)}`,
+          duration: '1 hour',
+        })),
+        estimatedCost: `${TravelKnowledgeService.formatPrice(50, verified.defaultCurrency)} - ${TravelKnowledgeService.formatPrice(150, verified.defaultCurrency)}`,
+        bestTime: 'Morning or Afternoon',
+        recommendedDuration: '1 hour',
+        tags: ['Artisan Bakery', 'Farm Refreshments', 'Chai & Coffee'],
+      },
+      adventure: {
+        category: 'adventure',
+        imageUrl: verified.attractions.find(a => a.category === 'viewpoint' || a.category === 'waterfall' || a.category === 'nature')?.imageUrl || verified.heroImage,
+        whyPopular: `Get active with scenic hiking trails, ridge walks, and outdoor excursions in ${verified.canonicalName}.`,
+        topPlaces: verified.attractions.filter(a => a.category === 'waterfall' || a.category === 'viewpoint' || a.category === 'nature').slice(0, 3).map(a => ({
+          id: a.id,
+          name: a.name,
+          description: `${a.description} (${a.locality})`,
+          estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
+          duration: a.recommendedDuration,
+        })),
+        estimatedCost: 'Free Access',
+        bestTime: 'Morning for clear views and stable weather',
+        recommendedDuration: '2-4 hours',
+        tags: ['Mountain Trek', 'Waterfall Walk', 'Valley Trails'],
+      },
+      nightlife: {
+        category: 'nightlife',
+        imageUrl: verified.heroImage,
+        whyPopular: `Serene evening stargazing, cool mountain breezes, and night market bazaars in ${verified.canonicalName}.`,
+        topPlaces: verified.accommodations.slice(0, 2).map(acc => ({
+          id: acc.id,
+          name: `${acc.name} Evening Veranda & Terrace`,
+          description: `Relaxing sunset and evening dining in ${acc.locality}`,
+          estimatedCost: 'Dining Tariff',
+          duration: '2 hours',
+        })),
+        estimatedCost: 'Moderate',
+        bestTime: '7:30 PM onwards',
+        recommendedDuration: '2 hours',
+        tags: ['Stargazing', 'Night Market', 'Sunset Veranda'],
+      },
+    };
+
+    return {
+      id: verified.id,
+      matchKeywords: verified.matchKeywords,
+      destination: {
+        name: verified.canonicalName,
+        description: verified.description,
+        heroImage: verified.heroImage,
+        bestSeason: verified.bestSeason,
+        weather: verified.weather,
+        dailyBudget: verified.dailyBudgetEstimate.amount,
+      },
+      colorPalette: verified.colorPalette,
+      attractions: verified.attractions.map(a => ({
+        id: a.id,
+        name: a.name,
+        description: `${a.description} (${a.locality} • ${TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status)})`,
+        duration: a.recommendedDuration,
+        category: a.category.charAt(0).toUpperCase() + a.category.slice(1),
+        image: a.imageUrl,
+      })),
+      foodRecommendations: verified.foodExperiences.map(f => ({
+        id: f.id,
+        name: f.name,
+        description: f.description,
+        significance: `${f.significance} [Avg: ${TravelKnowledgeService.formatPrice(f.priceRange.min, f.priceRange.currency)} - ${TravelKnowledgeService.formatPrice(f.priceRange.max, f.priceRange.currency)}]`,
+        image: f.imageUrl,
+      })),
+      categoryDetails,
+    };
+  }
+
+  // 1. Direct or keyword match in existing base
   const found = DESTINATION_KNOWLEDGE_BASE.find((profile) => {
     if (profile.id.toLowerCase() === q) return true;
     if (profile.destination.name.toLowerCase().includes(q)) return true;

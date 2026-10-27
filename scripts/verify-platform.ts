@@ -219,10 +219,95 @@ async function runTestSuite() {
   }
   console.log(`   ✓ Assistant successfully curated ${aiResult.recommendedStops.length} grounded recommendations with verified evidence`);
 
-  console.log('\n🎉 ALL 6 VERIFICATION TEST SUITES PASSED CLEANLY!\n');
+  // ==========================================
+  // TEST 7: MAHABALESHWAR & GROUNDED KNOWLEDGE INTEGRITY
+  // ==========================================
+  console.log('\n👉 [7/9] Testing Mahabaleshwar & Grounded Knowledge Integrity...');
+  const { TravelKnowledgeService } = await import('../services/travelKnowledgeService');
+  const mahProfile = TravelKnowledgeService.resolveProfile('Mahabaleshwar');
+  assert.ok(mahProfile, 'Mahabaleshwar profile must be resolved');
+  assert.equal(mahProfile.countryCode, 'IN', 'Country code must be IN');
+  assert.equal(mahProfile.subdivisionId, 'maharashtra', 'Subdivision must be Maharashtra');
+  assert.ok(mahProfile.coordinates.lat > 17.8 && mahProfile.coordinates.lat < 18.0, 'Latitude must be ~17.92');
+  assert.ok(mahProfile.coordinates.lng > 73.5 && mahProfile.coordinates.lng < 73.8, 'Longitude must be ~73.65');
+
+  // Verify real attractions (Lingmala, Pratapgad, Venna Lake, Arthur's Seat, Mapro Garden, etc.)
+  const attrNames = mahProfile.attractions.map(a => a.name);
+  assert.ok(attrNames.some(n => n.includes('Lingmala')), 'Must contain Lingmala Waterfall');
+  assert.ok(attrNames.some(n => n.includes('Pratapgad')), 'Must contain Pratapgad Fort');
+  assert.ok(attrNames.some(n => n.includes('Venna Lake')), 'Must contain Venna Lake');
+  assert.ok(attrNames.some(n => n.includes("Arthur's Seat")), "Must contain Arthur's Seat");
+  assert.ok(attrNames.some(n => n.includes('Mapro Garden')), 'Must contain Mapro Garden');
+  assert.ok(attrNames.some(n => n.includes('Table Land')), 'Must contain Table Land');
+  assert.ok(attrNames.some(n => n.includes('Bhilar')), 'Must contain Bhilar Waterfall');
+
+  // Strict anti-hallucination checks: NO European basilicas, stained glass, or ocean beaches
+  for (const a of mahProfile.attractions) {
+    assert.ok(!a.name.toLowerCase().includes('basilica'), 'Must NOT hallucinate stone basilica in Mahabaleshwar');
+    assert.ok(!a.name.toLowerCase().includes('belfry'), 'Must NOT hallucinate belfry in Mahabaleshwar');
+    assert.ok(!a.name.toLowerCase().includes('pebble cove'), 'Must NOT hallucinate ocean pebble cove in Mahabaleshwar');
+  }
+  console.log(`   ✓ Mahabaleshwar resolved with ${mahProfile.attractions.length} verified attractions with real coordinates`);
+
+  // Verify real food experiences (Strawberries with Cream, Pithla Bhakri, Makai Pattice)
+  const foodNames = mahProfile.foodExperiences.map(f => f.name);
+  assert.ok(foodNames.some(n => n.includes('Strawberries') && n.includes('Cream')), 'Must contain Fresh Strawberries with Whipped Cream');
+  assert.ok(foodNames.some(n => n.includes('Pithla Bhakri')), 'Must contain Pithla Bhakri');
+  assert.ok(foodNames.some(n => n.includes('Makai Pattice')), 'Must contain Makai Pattice');
+
+  // Verify honest regional pricing in INR
+  for (const food of mahProfile.foodExperiences) {
+    assert.equal(food.priceRange.currency, 'INR', 'Food pricing for Mahabaleshwar must be in INR (₹)');
+  }
+  console.log(`   ✓ Authentic culinary experiences verified with honest INR pricing`);
+
+  // ==========================================
+  // TEST 8: CORRIDOR GEOGRAPHIC ISOLATION
+  // ==========================================
+  console.log('\n👉 [8/9] Testing Corridor Geographic Isolation & Route Purity...');
+
+  const puneMahRoute = await MapRouteService.calculateRoute({
+    origin: 'Pune',
+    destination: 'Mahabaleshwar',
+    travelMode: 'driving',
+  });
+  console.log(`   Pune -> Mahabaleshwar calculated: ${puneMahRoute.distanceKm} km (${puneMahRoute.durationMinutes} min)`);
+  assert.ok(puneMahRoute.distanceKm >= 100 && puneMahRoute.distanceKm <= 150, 'Pune-Mahabaleshwar route should be ~115-130 km');
+  assert.ok(puneMahRoute.summary.includes('NH48') || puneMahRoute.summary.includes('Ghat'), 'Summary should reference NH48/Wai-Panchgani Ghat');
+
+  // Find candidate stops along the Pune-Mahabaleshwar corridor
+  const mhStops = MapRouteService.findStopsAlongRoute(puneMahRoute);
+  assert.ok(mhStops.length > 0, 'Should find candidate stops along Pune-Mahabaleshwar corridor');
+  
+  // CRITICAL CHECK: Zero Italian Autogrills or Amalfi hotels on an Indian route!
+  for (const stop of mhStops) {
+    assert.ok(!stop.id.startsWith('place-amalfi-'), `Italian stop ${stop.name} must NOT leak into Indian corridor!`);
+    assert.ok(stop.coordinates.lat > 16.0 && stop.coordinates.lat < 20.0, 'Stops must be within Maharashtra geographic bounds');
+  }
+  console.log(`   ✓ Geographic isolation verified: ${mhStops.length} verified Maharashtra stops, 0 Italian leakages`);
+
+  // ==========================================
+  // TEST 9: PRESERVATION OF AMALFI COAST SAVED TRIP
+  // ==========================================
+  console.log('\n👉 [9/9] Testing Preservation of Saved Amalfi Coast Reference Trip...');
+
+  const amalfiTrip = CollaborationService.getTripById('trip-amalfi-classic');
+  assert.ok(amalfiTrip, 'trip-amalfi-classic must remain accessible');
+  assert.equal(amalfiTrip.origin, 'Naples', 'Amalfi trip origin must remain Naples');
+  assert.ok(amalfiTrip.originCoordinates, 'Origin coordinates must exist');
+  assert.ok(amalfiTrip.destinationCoordinates, 'Destination coordinates must exist');
+  assert.ok(amalfiTrip.originCoordinates.lat > 40.0 && amalfiTrip.originCoordinates.lat < 42.0, 'Origin must stay in Italy');
+  assert.ok(amalfiTrip.destinationCoordinates.lat > 40.0 && amalfiTrip.destinationCoordinates.lat < 42.0, 'Destination must stay in Italy');
+  assert.equal(amalfiTrip.invitationCode, 'AMALFI-26', 'Invite code must remain AMALFI-26');
+  assert.ok(amalfiTrip.stops.length >= 2, 'Stops must remain intact');
+  assert.ok(amalfiTrip.stops.some(s => s.name.includes('Autogrill') || s.name.includes('Sal De Riso')), 'Stops must be authentic Amalfi spots');
+  console.log(`   ✓ Saved Amalfi Coast reference trip preserved intact with Italian coordinates`);
+
+  console.log('\n🎉 ALL 9 VERIFICATION TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n');
 }
 
 runTestSuite().catch((err) => {
   console.error('\n❌ Test suite failed with error:\n', err);
   process.exit(1);
 });
+

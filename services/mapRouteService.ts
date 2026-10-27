@@ -184,7 +184,12 @@ export class MapRouteService {
       };
     });
 
-    return HygieneService.filterPlaces(placesWithRouteDetour, options);
+    // CRITICAL GEOGRAPHIC PROXIMITY ISOLATION:
+    // Only return places within an 80 km corridor radius of the actual polyline.
+    // This strictly prevents Italian stops (e.g. Autogrill in Bologna/Amalfi) from appearing on Indian or global routes!
+    const corridorPlaces = placesWithRouteDetour.filter(p => (p.detourKm || 0) <= 80);
+
+    return HygieneService.filterPlaces(corridorPlaces, options);
   }
 
   /**
@@ -194,7 +199,7 @@ export class MapRouteService {
     const origLower = origin.toLowerCase();
     const destLower = destination.toLowerCase();
 
-    // Corridor 1: Naples / Sorrento / Positano to Amalfi Coast
+    // Corridor 1: Naples / Sorrento / Positano to Amalfi Coast (Preserved Reference)
     if (origLower.includes('nap') || origLower.includes('sorrento') || origLower.includes('posi') || destLower.includes('amal') || destLower.includes('posi') || destLower.includes('ravello')) {
       const path: [number, number][] = [
         [40.8518, 14.2681], // Naples
@@ -238,7 +243,104 @@ export class MapRouteService {
       };
     }
 
-    // Corridor 2: Tokyo to Kyoto / Osaka (Golden Route)
+    // Corridor 2: Pune / Mumbai to Mahabaleshwar & Kaas Plateau (Maharashtra Western Ghats)
+    if (
+      origLower.includes('mahaba') || destLower.includes('mahaba') ||
+      origLower.includes('panchg') || destLower.includes('panchg') ||
+      ((origLower.includes('pune') || origLower.includes('mumbai') || origLower.includes('satara')) && (destLower.includes('mahaba') || destLower.includes('satara') || destLower.includes('kaas') || destLower.includes('pratapgad')))
+    ) {
+      const isFromMumbai = origLower.includes('mumbai') || origLower.includes('bombay');
+      const originName = isFromMumbai ? 'Mumbai' : 'Pune';
+      const originAddress = isFromMumbai ? 'Nariman Point, Mumbai, Maharashtra' : 'Swargate / Deccan, Pune, Maharashtra';
+      const originCoords = isFromMumbai ? { lat: 18.9220, lng: 72.8347 } : { lat: 18.5204, lng: 73.8567 };
+
+      const path: [number, number][] = isFromMumbai
+        ? [
+            [18.9220, 72.8347], // Mumbai
+            [19.0330, 73.0297], // Navi Mumbai
+            [18.7500, 73.4000], // Khandala Ghat
+            [18.5204, 73.8567], // Pune
+            [18.4485, 73.8580], // Katraj Tunnel
+            [18.1365, 74.0322], // Shirwal NH48
+            [17.9940, 74.0205], // Surur Phata
+            [17.9490, 73.8920], // Wai
+            [17.9350, 73.8400], // Pasarni Ghat
+            [17.9242, 73.8051], // Panchgani
+            [17.9228, 73.7467], // Gureghar / Mapro Garden
+            [17.9255, 73.6644], // Venna Lake
+            [17.9237, 73.6586], // Mahabaleshwar
+          ]
+        : [
+            [18.5204, 73.8567], // Pune Swargate
+            [18.4485, 73.8580], // Katraj Tunnel NH48
+            [18.1365, 74.0322], // Shirwal NH48
+            [17.9940, 74.0205], // Surur Phata (Wai Turnoff)
+            [17.9490, 73.8920], // Wai Krishna Valley
+            [17.9350, 73.8400], // Pasarni Ghat Scenic Overlook
+            [17.9242, 73.8051], // Panchgani Table Land
+            [17.9228, 73.7467], // Gureghar / Mapro Garden
+            [17.9255, 73.6644], // Venna Lake Promenade
+            [17.9237, 73.6586], // Mahabaleshwar Center
+          ];
+
+      const baseDistance = isFromMumbai ? 230.0 : 121.5;
+      const baseDuration = isFromMumbai ? 310 : 175;
+
+      return {
+        originName,
+        originAddress,
+        originCoords,
+        destinationName: destination || 'Mahabaleshwar & Kaas Plateau',
+        destinationAddress: 'Mahabaleshwar, Satara District, Maharashtra, India',
+        destinationCoords: { lat: 17.9237, lng: 73.6586 },
+        baseDistanceKm: baseDistance,
+        baseDurationMinutes: baseDuration,
+        summary: 'Via NH48 Highway and SH72 Wai-Panchgani Ghat Scenic Corridor',
+        path,
+        alternativeRoutes: [
+          {
+            summary: 'Via Bhor Ghat and Medha Scenic Mountain Pass',
+            distanceKm: baseDistance + 18.0,
+            durationMinutes: baseDuration + 35,
+            coordinatesPath: [
+              path[0],
+              [18.0500, 73.8500],
+              [17.9237, 73.6586],
+            ] as [number, number][],
+          },
+        ],
+      };
+    }
+
+    // Corridor 3: Delhi to Agra (Yamuna Expressway)
+    if (
+      (origLower.includes('delhi') || origLower.includes('noida') || origLower.includes('gurgaon')) &&
+      (destLower.includes('agra') || destLower.includes('taj') || destLower.includes('fatehpur'))
+    ) {
+      const path: [number, number][] = [
+        [28.6139, 77.2090], // Delhi Center
+        [28.4595, 77.0266], // Greater Noida
+        [28.1800, 77.5500], // Jewar Toll
+        [27.8000, 77.8200], // Mathura Bypass
+        [27.3500, 77.9500], // Khandauli
+        [27.1751, 78.0421], // Agra / Taj Mahal
+      ];
+
+      return {
+        originName: 'Delhi',
+        originAddress: 'Connaught Place, New Delhi, India',
+        originCoords: { lat: 28.6139, lng: 77.2090 },
+        destinationName: destination || 'Agra (Taj Mahal)',
+        destinationAddress: 'Tajganj, Agra, Uttar Pradesh, India',
+        destinationCoords: { lat: 27.1751, lng: 78.0421 },
+        baseDistanceKm: 215.0,
+        baseDurationMinutes: 195,
+        summary: 'Via Yamuna Expressway and Taj Express Highway',
+        path,
+      };
+    }
+
+    // Corridor 4: Tokyo to Kyoto / Osaka (Golden Route)
     if (origLower.includes('tokyo') || destLower.includes('kyoto') || destLower.includes('tokyo')) {
       const path: [number, number][] = [
         [35.6812, 139.7671], // Tokyo Station
@@ -266,17 +368,53 @@ export class MapRouteService {
       };
     }
 
-    // Default worldwide dynamic corridor
-    const originCoords = { lat: 41.9028, lng: 12.4964 }; // Rome default
-    const destCoords = { lat: 40.6340, lng: 14.6027 }; // Amalfi default
+    // Dynamic Geolocation Resolver for any arbitrary origin and destination
+    const KNOWN_COORDS: Record<string, { lat: number; lng: number; address: string }> = {
+      paris: { lat: 48.8566, lng: 2.3522, address: 'Paris, Île-de-France, France' },
+      london: { lat: 51.5074, lng: -0.1278, address: 'London, United Kingdom' },
+      rome: { lat: 41.9028, lng: 12.4964, address: 'Rome, Lazio, Italy' },
+      mumbai: { lat: 19.0760, lng: 72.8777, address: 'Mumbai, Maharashtra, India' },
+      pune: { lat: 18.5204, lng: 73.8567, address: 'Pune, Maharashtra, India' },
+      delhi: { lat: 28.6139, lng: 77.2090, address: 'New Delhi, India' },
+      jaipur: { lat: 26.9124, lng: 75.7873, address: 'Jaipur, Rajasthan, India' },
+      bangalore: { lat: 12.9716, lng: 77.5946, address: 'Bengaluru, Karnataka, India' },
+      zurich: { lat: 47.3769, lng: 8.5417, address: 'Zürich, Switzerland' },
+      zermatt: { lat: 45.9763, lng: 7.7491, address: 'Zermatt, Valais, Switzerland' },
+      cairo: { lat: 30.0444, lng: 31.2357, address: 'Cairo, Egypt' },
+      sydney: { lat: -33.8688, lng: 151.2093, address: 'Sydney, NSW, Australia' },
+      cusco: { lat: -13.5319, lng: -71.9675, address: 'Cusco, Peru' },
+      machu: { lat: -13.1631, lng: -72.5450, address: 'Machu Picchu Sanctuary, Peru' },
+      petra: { lat: 30.3285, lng: 35.4444, address: 'Petra, Ma\'an, Jordan' },
+      bali: { lat: -8.4095, lng: 115.1889, address: 'Bali, Indonesia' },
+    };
+
+    let originCoords = { lat: 18.5204, lng: 73.8567 }; // Pune baseline
+    let originAddress = `${origin}, Region`;
+    for (const [k, v] of Object.entries(KNOWN_COORDS)) {
+      if (origLower.includes(k)) {
+        originCoords = { lat: v.lat, lng: v.lng };
+        originAddress = v.address;
+        break;
+      }
+    }
+
+    let destCoords = { lat: 17.9237, lng: 73.6586 }; // Mahabaleshwar baseline
+    let destAddress = `${destination}, Region`;
+    for (const [k, v] of Object.entries(KNOWN_COORDS)) {
+      if (destLower.includes(k)) {
+        destCoords = { lat: v.lat, lng: v.lng };
+        destAddress = v.address;
+        break;
+      }
+    }
+
     const steps = 8;
     const path: [number, number][] = [];
 
     for (let i = 0; i <= steps; i++) {
       const fraction = i / steps;
       const lat = originCoords.lat + (destCoords.lat - originCoords.lat) * fraction;
-      // Add natural gentle road curvature
-      const jitter = Math.sin(fraction * Math.PI) * 0.08;
+      const jitter = Math.sin(fraction * Math.PI) * 0.04;
       const lng = originCoords.lng + (destCoords.lng - originCoords.lng) * fraction + jitter;
       path.push([lat, lng]);
     }
@@ -285,15 +423,16 @@ export class MapRouteService {
 
     return {
       originName: origin,
-      originAddress: `${origin}, Center`,
+      originAddress,
       originCoords,
       destinationName: destination,
-      destinationAddress: `${destination}, Center`,
+      destinationAddress: destAddress,
       destinationCoords: destCoords,
-      baseDistanceKm: Math.round(dist * 1.3),
-      baseDurationMinutes: Math.round((dist * 1.3 / 70) * 60),
-      summary: `Primary Highway Route from ${origin} to ${destination}`,
+      baseDistanceKm: Math.max(12, Math.round(dist * 1.25)),
+      baseDurationMinutes: Math.max(20, Math.round((dist * 1.25 / 65) * 60)),
+      summary: `Direct Regional Highway Route from ${origin} to ${destination}`,
       path,
     };
   }
 }
+

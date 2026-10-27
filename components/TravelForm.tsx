@@ -83,13 +83,35 @@ export function TravelForm({ onSubmit, defaultDestination = '' }: TravelFormProp
             </Label>
             <Input
               id="destination"
-              placeholder="e.g., Amalfi Coast, Tokyo, Kyoto, Paris"
+              placeholder="e.g., Mahabaleshwar, Amalfi Coast, Taj Mahal, Paris, Kyoto"
               className="bg-[#F7F5EF]/60 border-[#244536]/15 text-[#292D2A] focus:bg-white text-base h-12"
               {...register('destination')}
             />
             {errors.destination && (
               <p className="text-xs text-red-600 font-medium">{errors.destination.message}</p>
             )}
+
+            {/* Verified Quick Selection Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[#5F6761] mr-1">Verified:</span>
+              {[
+                { label: '🍓 Mahabaleshwar', value: 'Mahabaleshwar' },
+                { label: '🇮🇹 Amalfi Coast', value: 'Amalfi Coast' },
+                { label: '🕌 Taj Mahal (Agra)', value: 'Taj Mahal' },
+                { label: '🗼 Paris', value: 'Paris' },
+                { label: '🏔️ Spiti Valley', value: 'Spiti Valley' },
+                { label: '⛩️ Kyoto', value: 'Kyoto' },
+              ].map((pill) => (
+                <button
+                  key={pill.value}
+                  type="button"
+                  onClick={() => setValue('destination', pill.value, { shouldValidate: true })}
+                  className="px-2.5 py-1 bg-[#F7F5EF] hover:bg-[#244536]/10 text-[#244536] rounded-lg text-xs font-medium border border-[#244536]/10 transition-colors"
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Budget & Duration Grid */}
