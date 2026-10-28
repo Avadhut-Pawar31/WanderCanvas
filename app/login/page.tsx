@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, Loader2, Compass } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -10,9 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuthStore();
   
   const [email, setEmail] = useState('');
@@ -21,11 +23,53 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Handle URL query parameters (e.g. from Supabase email confirmation redirects or errors)
+  useEffect(() => {
+    // Clear any stale notifications from previous pages
+    toast.dismiss();
+
+    const confirmed = searchParams.get('confirmed');
+    const errorParam = searchParams.get('error') || searchParams.get('error_description');
+    const code = searchParams.get('code');
+
+    if (code) {
+      // Direct PKCE redirect to login: attempt session exchange
+      const supabase = createClient();
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (!error && data.session) {
+          toast.success('Email confirmed! Welcome to WanderCanvas.', { id: 'auth-toast' });
+          router.replace('/home');
+        } else {
+          toast.success('Email confirmed successfully! Please sign in with your credentials.', {
+            id: 'auth-toast',
+            duration: 6000,
+          });
+        }
+      });
+      return;
+    }
+
+    if (confirmed === 'true') {
+      toast.success('Email confirmed successfully! Please sign in with your credentials.', {
+        id: 'auth-toast',
+        duration: 6000,
+      });
+    } else if (errorParam) {
+      toast.error(errorParam, {
+        id: 'auth-toast',
+        duration: 7000,
+      });
+    }
+  }, [searchParams, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Clear any previous error and success notifications before new attempt
+    toast.dismiss();
+
     if (!email || !password) {
-      toast.error('Please enter your email and password');
+      toast.error('Please enter your email and password', { id: 'auth-toast' });
       return;
     }
 
@@ -34,16 +78,20 @@ export default function LoginPage() {
     setIsLoading(false);
     
     if (result.success) {
-      toast.success('Welcome back to WanderCanvas!');
+      toast.success('Welcome back to WanderCanvas!', { id: 'auth-toast' });
       router.push('/home');
     } else {
-      if (result.error?.toLowerCase().includes('email not confirmed')) {
+      const isEmailNotConfirmed =
+        result.code === 'email_not_confirmed' ||
+        result.error?.toLowerCase().includes('email not confirmed');
+
+      if (isEmailNotConfirmed) {
         toast.error(
           'Email not confirmed yet! Please click the confirmation link sent to your email, or in Supabase Dashboard click "Confirm user".',
-          { duration: 7000 }
+          { id: 'auth-toast', duration: 7000 }
         );
       } else {
-        toast.error(result.error || 'Login failed');
+        toast.error(result.error || 'Login failed', { id: 'auth-toast' });
       }
     }
   };
@@ -168,9 +216,10 @@ export default function LoginPage() {
             type="button"
             variant="outline"
             onClick={() => {
+              toast.dismiss();
               setEmail('elena@wandercanvas.com');
               setPassword('password123');
-              toast.success('Demo credentials loaded! Click Sign In.');
+              toast.success('Demo credentials loaded! Click Sign In.', { id: 'auth-toast' });
             }}
             className="w-full bg-[#F7F5EF] border-[#244536]/15 text-[#244536] hover:bg-white text-xs font-semibold h-10 rounded-xl"
           >
@@ -187,5 +236,19 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F7F5EF] flex items-center justify-center p-4">
+          <Loader2 className="w-8 h-8 animate-spin text-[#244536]" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

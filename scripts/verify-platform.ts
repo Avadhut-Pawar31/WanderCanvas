@@ -490,7 +490,13 @@ async function runTestSuite() {
     console.log(`   ✓ "${td.query}" (${td.duration} days) itinerary generated cleanly with valid stops`);
   }
 
-  console.log('\n🎉 ALL 13 VERIFICATION TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n');
+  // ==========================================
+  // TEST 14: AUTHENTICATION FLOW & NOTIFICATIONS
+  // ==========================================
+  const { runAuthVerificationSuite } = await import('./verify-auth-flow');
+  await runAuthVerificationSuite();
+
+  console.log('\n🎉 ALL 14 VERIFICATION TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n');
 }
 
 runTestSuite().catch((err) => {

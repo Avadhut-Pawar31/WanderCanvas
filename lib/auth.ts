@@ -8,6 +8,22 @@ export interface User {
   createdAt: Date;
 }
 
+export interface AuthResult {
+  success: boolean;
+  error?: string;
+  code?: string;
+  user?: User;
+  emailConfirmationRequired?: boolean;
+}
+
+export function getAuthRedirectUrl(): string {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return `${window.location.origin}/auth/callback`;
+  }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wandercanv.netlify.app';
+  return `${appUrl.replace(/\/$/, '')}/auth/callback`;
+}
+
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -74,7 +90,7 @@ export class AuthService {
   static async login(
     email: string,
     password: string
-  ): Promise<{ success: boolean; error?: string; user?: User }> {
+  ): Promise<AuthResult> {
     if (typeof window === 'undefined') {
       return { success: false, error: 'Not available on server' };
     }
@@ -87,7 +103,12 @@ export class AuthService {
       });
 
       if (error || !data.user) {
-        return { success: false, error: error?.message || 'Login failed' };
+        const errorCode = (error as any)?.code || (error as any)?.error_code || '';
+        return {
+          success: false,
+          error: error?.message || 'Login failed',
+          code: errorCode,
+        };
       }
 
       const user: User = {
@@ -119,13 +140,15 @@ export class AuthService {
     name: string,
     email: string,
     password: string
-  ): Promise<{ success: boolean; error?: string; user?: User; emailConfirmationRequired?: boolean }> {
+  ): Promise<AuthResult> {
     if (typeof window === 'undefined') {
       return { success: false, error: 'Not available on server' };
     }
 
     try {
       const supabase = createClient();
+      const redirectUrl = getAuthRedirectUrl();
+
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -134,11 +157,17 @@ export class AuthService {
             full_name: name.trim(),
             name: name.trim(),
           },
+          emailRedirectTo: redirectUrl,
         },
       });
 
       if (error || !data.user) {
-        return { success: false, error: error?.message || 'Signup failed' };
+        const errorCode = (error as any)?.code || (error as any)?.error_code || '';
+        return {
+          success: false,
+          error: error?.message || 'Signup failed',
+          code: errorCode,
+        };
       }
 
       // Check if user already exists (Supabase email enumeration protection returns empty identities array)
@@ -146,6 +175,7 @@ export class AuthService {
         return {
           success: false,
           error: 'An account with this email already exists. Please sign in instead.',
+          code: 'user_already_exists',
         };
       }
 
@@ -173,6 +203,37 @@ export class AuthService {
       };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Signup failed';
+      return { success: false, error: msg };
+    }
+  }
+
+  /**
+   * Resend signup confirmation email.
+   */
+  static async resendConfirmationEmail(email: string): Promise<AuthResult> {
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'Not available on server' };
+    }
+
+    try {
+      const supabase = createClient();
+      const redirectUrl = getAuthRedirectUrl();
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+        options: {
+          emailRedirectTo: redirectUrl,
+        },
+      });
+
+      if (error) {
+        const errorCode = (error as any)?.code || (error as any)?.error_code || '';
+        return { success: false, error: error.message, code: errorCode };
+      }
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to resend confirmation email';
       return { success: false, error: msg };
     }
   }

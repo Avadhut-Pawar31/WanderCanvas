@@ -1,13 +1,14 @@
 import { create } from 'zustand';
-import { User, AuthService } from '@/lib/auth';
+import { User, AuthService, AuthResult } from '@/lib/auth';
 
 interface AuthStore {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string; emailConfirmationRequired?: boolean }>;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  signup: (name: string, email: string, password: string) => Promise<AuthResult>;
+  resendConfirmationEmail: (email: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
@@ -54,6 +55,10 @@ export const useAuthStore = create<AuthStore>((set) => {
       }
 
       return result;
+    },
+
+    resendConfirmationEmail: async (email: string) => {
+      return await AuthService.resendConfirmationEmail(email);
     },
 
     logout: async () => {
