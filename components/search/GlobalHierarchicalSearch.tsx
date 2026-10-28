@@ -135,7 +135,11 @@ export function GlobalHierarchicalSearch({
     if (onSelectEntity) {
       onSelectEntity(entity);
     } else {
-      router.push(`/explore?entityId=${encodeURIComponent(entity.id)}&q=${encodeURIComponent(entity.canonicalName)}`);
+      if (entity.entityType === 'attraction' || entity.entityType === 'business') {
+        router.push(`/place/${encodeURIComponent(entity.id)}`);
+      } else {
+        router.push(`/destination/${encodeURIComponent(entity.id)}`);
+      }
     }
   };
 

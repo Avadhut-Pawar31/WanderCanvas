@@ -32,6 +32,7 @@ import {
   Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ExploreService } from '@/services/exploreService';
@@ -383,14 +384,17 @@ function ExploreContent() {
 
                     {/* Footer Actions */}
                     <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDetailEntity(entity)}
+                      <Link
+                        href={
+                          entity.entityType === 'attraction' || entity.entityType === 'business'
+                            ? `/place/${encodeURIComponent(entity.id)}`
+                            : `/destination/${encodeURIComponent(entity.id)}`
+                        }
                         className="text-xs font-semibold text-[#5F6761] hover:text-[#244536] flex items-center gap-1"
                       >
                         <Info className="w-3.5 h-3.5" />
                         <span>Place Details</span>
-                      </button>
+                      </Link>
 
                       <button
                         type="button"
@@ -493,7 +497,7 @@ function ExploreContent() {
                   <motion.div
                     key={loc.id}
                     whileHover={{ y: -3 }}
-                    onClick={() => handleEntityDrillDown(loc)}
+                    onClick={() => router.push(`/destination/${encodeURIComponent(loc.id)}`)}
                     className="cursor-pointer group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
                   >
                     <div>
@@ -525,7 +529,7 @@ function ExploreContent() {
                       </div>
                     </div>
                     <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between text-xs font-bold text-[#244536] group-hover:text-[#C78363]">
-                      <span>Explore Locality &rarr;</span>
+                      <span>Open Destination Guide &rarr;</span>
                     </div>
                   </motion.div>
                 ))}
@@ -607,13 +611,12 @@ function ExploreContent() {
                       </div>
 
                       <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDetailEntity(att)}
-                          className="text-xs font-semibold text-[#244536] hover:underline"
+                        <Link
+                          href={`/place/${encodeURIComponent(att.id)}`}
+                          className="text-xs font-semibold text-[#244536] hover:underline flex items-center gap-1"
                         >
-                          View Details &amp; Pricing &rarr;
-                        </button>
+                          <span>View Full Attraction Dossier &rarr;</span>
+                        </Link>
                       </div>
                     </motion.div>
                   );
@@ -703,13 +706,12 @@ function ExploreContent() {
                       </div>
 
                       <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDetailEntity(biz)}
-                          className="text-xs font-semibold text-[#244536] hover:underline"
+                        <Link
+                          href={`/place/${encodeURIComponent(biz.id)}`}
+                          className="text-xs font-semibold text-[#244536] hover:underline flex items-center gap-1"
                         >
-                          View Facility Data &rarr;
-                        </button>
+                          <span>View Facility Data &amp; Directions &rarr;</span>
+                        </Link>
                       </div>
                     </motion.div>
                   );

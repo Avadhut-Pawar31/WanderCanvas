@@ -57,7 +57,7 @@ export default function LandingPage() {
       image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1000&q=85',
       stopsCount: '12 Verified Spots',
       hygieneScore: 94,
-      targetHref: '/explore?entityId=loc-in-mh-mahabaleshwar'
+      targetHref: '/destination/loc-in-mh-mahabaleshwar'
     },
     {
       id: 'dest-in-mh-kaas',
@@ -68,7 +68,7 @@ export default function LandingPage() {
       image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1000&q=85',
       stopsCount: '8 Scenic Trails',
       hygieneScore: 92,
-      targetHref: '/explore?entityId=dest-in-mh-kaas'
+      targetHref: '/destination/dest-in-mh-kaas'
     },
     {
       id: 'loc-in-mh-bhilar',
@@ -79,7 +79,7 @@ export default function LandingPage() {
       image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=1000&q=85',
       stopsCount: '6 Community Stays',
       hygieneScore: 95,
-      targetHref: '/explore?entityId=loc-in-mh-bhilar'
+      targetHref: '/destination/loc-in-mh-bhilar'
     },
     {
       id: 'loc-in-mh-mumbai',
@@ -90,7 +90,7 @@ export default function LandingPage() {
       image: 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1000&q=85',
       stopsCount: '24 Curated Spots',
       hygieneScore: 96,
-      targetHref: '/explore?entityId=loc-in-mh-mumbai'
+      targetHref: '/destination/loc-in-mh-mumbai'
     },
     {
       id: 'loc-jp-tokyo-shibuya',
@@ -101,7 +101,7 @@ export default function LandingPage() {
       image: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=1000&q=85',
       stopsCount: '18 Landmarks',
       hygieneScore: 99,
-      targetHref: '/explore?entityId=adm1-jp-tokyo'
+      targetHref: '/destination/adm1-jp-tokyo'
     },
     {
       id: 'dest-it-amalfi-coast',
@@ -112,7 +112,7 @@ export default function LandingPage() {
       image: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?w=1000&q=85',
       stopsCount: '15 Curated Spots',
       hygieneScore: 98,
-      targetHref: '/explore?entityId=dest-it-amalfi-coast'
+      targetHref: '/destination/dest-it-amalfi-coast'
     }
   ];
 
