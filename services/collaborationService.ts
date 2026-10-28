@@ -137,7 +137,7 @@ export class CollaborationService {
   /**
    * Save trips list to localStorage.
    */
-  private static saveTrips(trips: CollaborativeTrip[]): void {
+  static saveTrips(trips: CollaborativeTrip[]): void {
     if (typeof window === 'undefined') {
       this.memoryTrips = [...trips];
       return;

@@ -23,6 +23,7 @@ import {
   Navigation, 
   Check, 
   Copy, 
+  Link2,
   Filter, 
   ShieldCheck
 } from 'lucide-react';
@@ -43,6 +44,7 @@ export function TripWorkspaceView({
   const [inspectingPlace, setInspectingPlace] = useState<Place | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Filters for corridor discovery
   const [discoveryCategory, setDiscoveryCategory] = useState<PlaceCategory | 'all'>('all');
@@ -146,6 +148,16 @@ export function TripWorkspaceView({
       setCopiedCode(true);
       toast.success('Invitation code copied to clipboard!');
       setTimeout(() => setCopiedCode(false), 2500);
+    }
+  };
+
+  const handleCopyInviteLink = () => {
+    if (typeof window !== 'undefined' && navigator.clipboard) {
+      const link = `${window.location.origin}/workspace/${trip.id}`;
+      navigator.clipboard.writeText(link);
+      setCopiedLink(true);
+      toast.success('Direct trip link copied to clipboard!');
+      setTimeout(() => setCopiedLink(false), 2500);
     }
   };
 
@@ -565,20 +577,33 @@ export function TripWorkspaceView({
               Anyone with this invitation code can join your trip workspace, propose stops along the route, vote on recommendations, and chat in real time.
             </p>
 
-            <div className="p-4 rounded-2xl bg-[#F7F5EF] border border-[#244536]/15 space-y-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5F6761]">
-                Invitation Code
-              </span>
-              <div className="flex items-center justify-between">
-                <span className="font-serif text-2xl font-bold tracking-wider text-[#244536]">
-                  {trip.invitationCode}
+            <div className="p-4 rounded-2xl bg-[#F7F5EF] border border-[#244536]/15 space-y-3">
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5F6761]">
+                  Invitation Code
                 </span>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="font-serif text-2xl font-bold tracking-wider text-[#244536]">
+                    {trip.invitationCode}
+                  </span>
+                  <button
+                    onClick={handleCopyInviteCode}
+                    className="px-3 py-1.5 rounded-xl bg-[#244536] text-white text-xs font-medium hover:bg-[#1B3529] transition-colors flex items-center gap-1.5"
+                  >
+                    {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#244536]/10 flex items-center justify-between">
+                <span className="text-xs text-[#5F6761]">Direct workspace link:</span>
                 <button
-                  onClick={handleCopyInviteCode}
-                  className="px-3 py-1.5 rounded-xl bg-[#244536] text-white text-xs font-medium hover:bg-[#1B3529] transition-colors flex items-center gap-1.5"
+                  onClick={handleCopyInviteLink}
+                  className="px-3 py-1 rounded-lg border border-[#244536]/20 bg-white text-[#244536] text-xs font-medium hover:bg-[#F7F5EF] transition-colors flex items-center gap-1.5"
                 >
-                  {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Link2 className="w-3.5 h-3.5" />}
+                  <span>{copiedLink ? 'Copied Link!' : 'Copy Link'}</span>
                 </button>
               </div>
             </div>

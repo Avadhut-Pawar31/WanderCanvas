@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { TripMessage, Place } from '@/types';
-import { ChatService } from '@/services/chatService';
+import { ChatService, isSameOrDuplicateMessage } from '@/services/chatService';
 import { Send, Sparkles } from 'lucide-react';
 
 interface TripChatPanelProps {
@@ -31,8 +31,12 @@ export function TripChatPanel({
         setMessages((prev) => {
           const merged = [...prev];
           remoteMsgs.forEach((rm) => {
-            if (!merged.some((m) => m.id === rm.id)) {
+            const existingIdx = merged.findIndex((m) => isSameOrDuplicateMessage(m, rm));
+            if (existingIdx === -1) {
               merged.push(rm);
+            } else {
+              // Update with canonical remote copy (preserves DB UUID and verified profiles)
+              merged[existingIdx] = rm;
             }
           });
           return merged;
@@ -43,7 +47,9 @@ export function TripChatPanel({
     // 2. Subscribe to real-time chat messages
     const unsubscribe = ChatService.subscribeToTripChat(tripId, (newMessage) => {
       setMessages((prev) => {
-        if (prev.some((m) => m.id === newMessage.id)) return prev;
+        if (prev.some((m) => isSameOrDuplicateMessage(m, newMessage))) {
+          return prev;
+        }
         return [...prev, newMessage];
       });
     });
@@ -59,17 +65,24 @@ export function TripChatPanel({
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    const trimmed = inputText.trim();
+    if (!trimmed) return;
 
     const sent = ChatService.sendMessage({
       tripId,
       senderId: currentUserId,
       senderName: currentUserName,
-      content: inputText.trim(),
+      content: trimmed,
       type: 'text',
     });
 
-    setMessages((prev) => [...prev, sent]);
+    // Add sent message to local state immediately (optimistic UI) without duplicate
+    setMessages((prev) => {
+      if (prev.some((m) => isSameOrDuplicateMessage(m, sent))) {
+        return prev;
+      }
+      return [...prev, sent];
+    });
     setInputText('');
   };
 

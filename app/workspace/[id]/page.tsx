@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { TripWorkspaceView } from '@/components/workspace/TripWorkspaceView';
 import { CollaborationService } from '@/services/collaborationService';
-import { CollaborativeTrip } from '@/types';
+import { CollaborativeTrip, TripMember } from '@/types';
 import { useAuthStore } from '@/store/useAuthStore';
+import { createClient } from '@/lib/supabase/client';
+import { isUuid } from '@/services/chatService';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -54,6 +56,45 @@ export default function TripWorkspacePage() {
 
     return () => unsubscribe();
   }, [tripId, trip]);
+
+  // Ensure authenticated collaborator is added as a trip member in Supabase so RLS allows chat & edits
+  useEffect(() => {
+    if (!trip || !user?.id || !isUuid(user.id) || !isUuid(trip.id)) return;
+
+    const alreadyMember = trip.members.some(m => m.userId === user.id);
+    if (!alreadyMember) {
+      const newMember: TripMember = {
+        userId: user.id,
+        name: user.name || 'Fellow Traveler',
+        email: user.email || '',
+        avatar: user.avatar,
+        role: 'editor',
+        joinedAt: new Date().toISOString(),
+      };
+      trip.members.push(newMember);
+
+      // Save to local storage cache
+      const allTrips = CollaborationService.getAllTrips();
+      const idx = allTrips.findIndex(t => t.id === trip.id);
+      if (idx >= 0) {
+        allTrips[idx] = trip;
+        CollaborationService.saveTrips(allTrips);
+      }
+
+      // Upsert into Supabase trip_members table
+      const supabase = createClient();
+      supabase.from('trip_members').upsert({
+        trip_id: trip.id,
+        user_id: user.id,
+        role: 'editor',
+        joined_at: newMember.joinedAt,
+      }).then(({ error }) => {
+        if (error) {
+          console.warn('trip_members auto-membership notice:', error.message);
+        }
+      });
+    }
+  }, [trip, user]);
 
   if (isLoading) {
     return (

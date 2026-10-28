@@ -5,12 +5,45 @@ import { createClient } from '@/lib/supabase/client';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function isUuid(val: string): boolean {
+export function isUuid(val: string): boolean {
   return UUID_REGEX.test(val);
+}
+
+export function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Robust message deduplication helper.
+ * Matches exact IDs or composite (tripId + senderId + trimmed content within 5 seconds).
+ */
+export function isSameOrDuplicateMessage(a: TripMessage, b: TripMessage): boolean {
+  if (!a || !b) return false;
+  if (a.id && b.id && a.id === b.id) return true;
+  if (
+    a.tripId === b.tripId &&
+    a.senderId === b.senderId &&
+    a.content.trim() === b.content.trim()
+  ) {
+    const timeA = new Date(a.timestamp).getTime();
+    const timeB = new Date(b.timestamp).getTime();
+    if (!isNaN(timeA) && !isNaN(timeB) && Math.abs(timeA - timeB) < 5000) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export class ChatService {
   private static channels: Map<string, BroadcastChannel> = new Map();
+  private static realtimeChannels: Map<string, any> = new Map();
 
   private static getChannel(tripId: string): BroadcastChannel | null {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -22,13 +55,33 @@ export class ChatService {
     return null;
   }
 
+  private static getRealtimeChannel(tripId: string) {
+    if (typeof window === 'undefined' || !isUuid(tripId)) return null;
+    if (!this.realtimeChannels.has(tripId)) {
+      try {
+        const supabase = createClient();
+        const channel = supabase.channel(`trip-chat-${tripId}`, {
+          config: {
+            broadcast: { self: false },
+          },
+        });
+        channel.subscribe();
+        this.realtimeChannels.set(tripId, channel);
+      } catch (err) {
+        console.warn('Realtime channel initialization notice:', err);
+      }
+    }
+    return this.realtimeChannels.get(tripId);
+  }
+
   /**
-   * Listen for real-time messages via both Supabase Realtime WebSocket and local BroadcastChannel.
+   * Listen for real-time messages via both Supabase Realtime (Broadcast + Postgres Changes)
+   * and local BroadcastChannel.
    */
   static subscribeToTripChat(tripId: string, callback: (message: TripMessage) => void): () => void {
     const unsubscribers: Array<() => void> = [];
 
-    // 1. Local BroadcastChannel subscription (for fast zero-latency local tab sync)
+    // 1. Local BroadcastChannel subscription (for fast same-browser tab sync)
     const localChannel = this.getChannel(tripId);
     if (localChannel) {
       const handler = (event: MessageEvent) => {
@@ -40,12 +93,27 @@ export class ChatService {
       unsubscribers.push(() => localChannel.removeEventListener('message', handler));
     }
 
-    // 2. Supabase Realtime WebSocket subscription (for multi-device / multi-user network sync)
+    // 2. Supabase Realtime WebSocket subscription (for multi-device / network sync)
     if (typeof window !== 'undefined' && isUuid(tripId)) {
       try {
         const supabase = createClient();
         const realtimeChannel = supabase
-          .channel(`trip-chat-${tripId}`)
+          .channel(`trip-chat-${tripId}`, {
+            config: {
+              broadcast: { self: false }, // Never echo back to the sending client
+            },
+          })
+          // Fast WebSocket direct broadcast between connected clients
+          .on(
+            'broadcast',
+            { event: 'chat_message' },
+            ({ payload }) => {
+              if (payload && payload.tripId === tripId) {
+                callback(payload as TripMessage);
+              }
+            }
+          )
+          // Database level listener (for external inserts or background alerts)
           .on(
             'postgres_changes',
             {
@@ -66,11 +134,17 @@ export class ChatService {
                 created_at: string;
               };
 
+              if (!row) return;
+
+              const memberName = CollaborationService.getTripById(tripId)?.members.find(
+                m => m.userId === row.sender_id
+              )?.name;
+
               const tripMessage: TripMessage = {
                 id: row.id,
                 tripId: row.trip_id,
                 senderId: row.sender_id,
-                senderName: 'Fellow Traveler',
+                senderName: memberName || 'Fellow Traveler',
                 content: row.content,
                 timestamp: row.created_at,
                 type: row.message_type || 'text',
@@ -83,8 +157,11 @@ export class ChatService {
           )
           .subscribe();
 
+        this.realtimeChannels.set(tripId, realtimeChannel);
+
         unsubscribers.push(() => {
           supabase.removeChannel(realtimeChannel);
+          this.realtimeChannels.delete(tripId);
         });
       } catch (err) {
         console.warn('Realtime chat subscription notice:', err);
@@ -145,7 +222,8 @@ export class ChatService {
 
   /**
    * Send a message to the trip group conversation.
-   * Optimistically returns the created message immediately, then writes to Supabase & BroadcastChannel.
+   * Optimistically creates the message with a deterministic UUID, broadcasts via Supabase Realtime,
+   * and persists into Supabase DB & local cache.
    */
   static sendMessage(params: {
     tripId: string;
@@ -157,8 +235,11 @@ export class ChatService {
     attachedPlace?: Place;
     replyToId?: string;
   }): TripMessage {
+    // Generate valid UUID if trip is UUID, ensuring client & server use identical ID
+    const messageId = isUuid(params.tripId) ? generateUuid() : generateId();
+
     const message: TripMessage = {
-      id: generateId(),
+      id: messageId,
       tripId: params.tripId,
       senderId: params.senderId,
       senderName: params.senderName,
@@ -170,11 +251,14 @@ export class ChatService {
       replyToId: params.replyToId,
     };
 
-    // 1. Save to local trip in CollaborationService for fast local storage
+    // 1. Save to local trip in CollaborationService for fast reactive updates
     const trip = CollaborationService.getTripById(params.tripId);
     if (trip) {
       if (!trip.messages) trip.messages = [];
-      trip.messages.push(message);
+      const alreadyExists = trip.messages.some(m => isSameOrDuplicateMessage(m, message));
+      if (!alreadyExists) {
+        trip.messages.push(message);
+      }
       trip.updatedAt = new Date().toISOString();
 
       if (typeof window !== 'undefined') {
@@ -191,41 +275,98 @@ export class ChatService {
       }
     }
 
-    // 2. Broadcast via local BroadcastChannel
+    // 2. Broadcast via Supabase Realtime Broadcast (instant network delivery to connected friends)
+    try {
+      const realtimeChannel = this.getRealtimeChannel(params.tripId);
+      if (realtimeChannel) {
+        realtimeChannel.send({
+          type: 'broadcast',
+          event: 'chat_message',
+          payload: message,
+        });
+      }
+    } catch (broadcastErr) {
+      console.warn('Realtime broadcast error:', broadcastErr);
+    }
+
+    // 3. Broadcast via local BroadcastChannel (for other tabs in same browser profile)
     const localChannel = this.getChannel(params.tripId);
     if (localChannel) {
       try {
         localChannel.postMessage(message);
       } catch (err) {
-        console.error('Broadcast message failed:', err);
+        console.error('Local broadcast message failed:', err);
       }
     }
 
-    // 3. Persist to Supabase if tripId & senderId are valid UUIDs
-    if (typeof window !== 'undefined' && isUuid(params.tripId) && isUuid(params.senderId)) {
+    // 4. Persist to Supabase messages table with matching UUID
+    if (typeof window !== 'undefined' && isUuid(params.tripId)) {
       try {
         const supabase = createClient();
-        supabase
-          .from('messages')
-          .insert({
-            trip_id: params.tripId,
-            sender_id: params.senderId,
-            content: params.content.trim(),
-            message_type: params.type || 'text',
-            attached_place: params.attachedPlace || null,
-            reply_to_id: params.replyToId && isUuid(params.replyToId) ? params.replyToId : null,
-          })
-          .then(({ error }) => {
-            if (error) {
-              console.warn('Supabase message persist notice:', error.message);
+        let effectiveSenderId = params.senderId;
+
+        if (isUuid(effectiveSenderId)) {
+          this.persistMessageToSupabase(supabase, {
+            id: message.id,
+            tripId: params.tripId,
+            senderId: effectiveSenderId,
+            content: params.content,
+            type: params.type,
+            attachedPlace: params.attachedPlace,
+            replyToId: params.replyToId,
+          });
+        } else {
+          // Resolve authenticated user ID if senderId was a placeholder (e.g. 'user-me' or 'traveler-guest')
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user && isUuid(user.id)) {
+              this.persistMessageToSupabase(supabase, {
+                id: message.id,
+                tripId: params.tripId,
+                senderId: user.id,
+                content: params.content,
+                type: params.type,
+                attachedPlace: params.attachedPlace,
+                replyToId: params.replyToId,
+              });
             }
           });
+        }
       } catch (err) {
         console.warn('Supabase message send error:', err);
       }
     }
 
     return message;
+  }
+
+  private static async persistMessageToSupabase(
+    supabase: any,
+    params: {
+      id: string;
+      tripId: string;
+      senderId: string;
+      content: string;
+      type?: string;
+      attachedPlace?: Place;
+      replyToId?: string;
+    }
+  ) {
+    try {
+      const { error } = await supabase.from('messages').insert({
+        id: params.id,
+        trip_id: params.tripId,
+        sender_id: params.senderId,
+        content: params.content.trim(),
+        message_type: params.type || 'text',
+        attached_place: params.attachedPlace || null,
+        reply_to_id: params.replyToId && isUuid(params.replyToId) ? params.replyToId : null,
+      });
+      if (error) {
+        console.warn('Supabase message persist notice:', error.message);
+      }
+    } catch (e) {
+      console.warn('Failed to persist message to Supabase:', e);
+    }
   }
 
   /**
