@@ -135,15 +135,55 @@ export class AIService {
     const days: ItineraryDay[] = [];
     const numDays = Math.min(formData.duration || 3, 7);
 
+    const destName = formData.destination || 'Destination';
+
+    const safeAttractions: Attraction[] = (attractions && attractions.length > 0) ? attractions : [
+      {
+        id: generateId(),
+        name: `${destName} Historic Quarter & Heritage Trail`,
+        description: 'Explore preserved historic core, regional architecture, and local artisan shops',
+        duration: '2-3 hours',
+        category: 'Culture',
+      },
+      {
+        id: generateId(),
+        name: `${destName} Scenic Overlook & Waterfront Promenade`,
+        description: 'Panoramic viewpoints and scenic walking trails',
+        duration: '2 hours',
+        category: 'Nature',
+      },
+    ];
+
+    const safeFoods: FoodRecommendation[] = (foods && foods.length > 0) ? foods : [
+      {
+        id: generateId(),
+        name: `${destName} Authentic Slow-Cooked Specialty`,
+        description: 'Traditional regional recipe made with locally sourced farm ingredients',
+        significance: 'Generational culinary staple passed down through families',
+      },
+      {
+        id: generateId(),
+        name: `${destName} Market Street Specialty & Artisan Pastry`,
+        description: 'Freshly prepared savory bites and regional delicacies',
+        significance: 'Everyday street food loved by locals',
+      },
+    ];
+
     for (let i = 1; i <= numDays; i++) {
-      const attractionA = attractions[(i * 2 - 2) % attractions.length];
-      const attractionB = attractions[(i * 2 - 1) % attractions.length];
-      const foodItem = foods[(i - 1) % foods.length];
+      const attractionA = safeAttractions[(i * 2 - 2) % safeAttractions.length] || safeAttractions[0];
+      const attractionB = safeAttractions[(i * 2 - 1) % safeAttractions.length] || safeAttractions[safeAttractions.length - 1] || safeAttractions[0];
+      const foodItem = safeFoods[(i - 1) % safeFoods.length] || safeFoods[0];
+
+      const aName = attractionA?.name || `${destName} Landmark`;
+      const aDuration = attractionA?.duration || '2 hours';
+      const bName = attractionB?.name || `${destName} Viewpoint`;
+      const bDuration = attractionB?.duration || '2 hours';
+      const fName = foodItem?.name || `${destName} Regional Specialty`;
 
       days.push({
         day: i,
-        morning: `Commence with morning coffee and pastries, followed by a visit to ${attractionA.name} (${attractionA.duration}).`,
-        afternoon: `Savor an authentic lunch featuring ${foodItem.name}, followed by exploring ${attractionB.name} (${attractionB.duration}).`,
+        morning: `Commence with morning coffee and pastries, followed by a visit to ${aName} (${aDuration}).`,
+        afternoon: `Savor an authentic lunch featuring ${fName}, followed by exploring ${bName} (${bDuration}).`,
         evening: `Golden hour sunset stroll along scenic viewpoints, followed by evening dinner and regional dessert.`,
       });
     }

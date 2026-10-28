@@ -3,6 +3,7 @@ import { HygieneService } from '../services/hygieneService';
 import { MapRouteService } from '../services/mapRouteService';
 import { CollaborationService } from '../services/collaborationService';
 import { AIAssistantService } from '../services/aiAssistantService';
+import { AIService } from '../services/aiService';
 import { HygieneChecklist, Place } from '../types';
 
 async function runTestSuite() {
@@ -457,9 +458,39 @@ async function runTestSuite() {
       assert.ok(p.lastVerifiedDate, `Inspected place "${p.name}" must have lastVerifiedDate`);
     }
   }
-  console.log(`   ✓ All ${allSeedPlaces.length} places passed hygiene honesty & verified provenance audits`);
+  // ==========================================
+  // TEST 13: TRAVEL BOARD & ITINERARY GENERATION INTEGRITY
+  // ==========================================
+  console.log('\n👉 [13/13] Testing AIService.generateTravelBoard & Itinerary Integrity...');
+  const testDestinations = [
+    { query: 'Mahabaleshwar + Kaas Plateau', duration: 7 },
+    { query: 'Antarctic Peninsula & Lemaire Channel Glaciers', duration: 3 },
+    { query: 'Paris', duration: 5 },
+    { query: 'Tokyo', duration: 4 },
+    { query: 'Spiti Valley & High Himalayas', duration: 7 },
+    { query: 'Unknown Mountain Haven', duration: 2 },
+  ];
 
-  console.log('\n🎉 ALL 12 VERIFICATION TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n');
+  for (const td of testDestinations) {
+    const board = await AIService.generateTravelBoard({
+      destination: td.query,
+      budget: 2500,
+      duration: td.duration,
+      travelStyle: 'adventure',
+    });
+
+    assert.ok(board.itinerary.length === td.duration, `Itinerary for "${td.query}" should have ${td.duration} days`);
+    for (const day of board.itinerary) {
+      assert.ok(!day.morning.includes('undefined'), `Day ${day.day} morning must not contain "undefined" in "${td.query}"`);
+      assert.ok(!day.afternoon.includes('undefined'), `Day ${day.day} afternoon must not contain "undefined" in "${td.query}"`);
+      assert.ok(!day.evening.includes('undefined'), `Day ${day.day} evening must not contain "undefined" in "${td.query}"`);
+    }
+    assert.ok(board.attractions.length > 0, `Attractions must be populated for "${td.query}"`);
+    assert.ok(board.foodRecommendations.length > 0, `Food recommendations must be populated for "${td.query}"`);
+    console.log(`   ✓ "${td.query}" (${td.duration} days) itinerary generated cleanly with valid stops`);
+  }
+
+  console.log('\n🎉 ALL 13 VERIFICATION TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n');
 }
 
 runTestSuite().catch((err) => {
