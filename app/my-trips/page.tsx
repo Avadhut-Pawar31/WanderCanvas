@@ -81,7 +81,7 @@ function MyTripsPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const handleJoinTrip = (e: React.FormEvent) => {
+  const handleJoinTrip = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteCodeInput.trim()) return;
 
@@ -95,7 +95,7 @@ function MyTripsPage() {
       avatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80',
     };
 
-    const joinedTrip = CollaborationService.joinTripByInviteCode(code, traveler);
+    const joinedTrip = await CollaborationService.joinTripByInviteCode(code, traveler);
     setIsJoining(false);
 
     if (joinedTrip) {
@@ -104,7 +104,7 @@ function MyTripsPage() {
       setInviteCodeInput('');
       router.push(`/workspace/${joinedTrip.id}`);
     } else {
-      toast.error('Invalid or expired invite code. Try "AMALFI-26"');
+      toast.error('Invalid or expired invite code. Please check the code with your friend.');
     }
   };
 
@@ -355,12 +355,12 @@ function MyTripsPage() {
                     type="text"
                     value={inviteCodeInput}
                     onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
-                    placeholder="e.g. AMALFI-26"
+                    placeholder="e.g. WC-7K2X or AMALFI-26"
                     className="w-full px-3.5 py-2.5 rounded-lg border border-[#244536]/20 font-mono text-center tracking-widest text-lg uppercase text-[#244536] focus:outline-hidden focus:border-[#244536]"
                     autoFocus
                   />
                   <p className="text-[11px] text-[#292D2A]/50 mt-1">
-                    Tip: Try demo code <strong className="font-mono text-[#244536]">AMALFI-26</strong> to enter the Amalfi Coast itinerary.
+                    Enter the code shared by your friend (e.g. <strong className="font-mono text-[#244536]">WC-XXXX</strong>) or demo code <strong className="font-mono text-[#244536]">AMALFI-26</strong>.
                   </p>
                 </div>
 

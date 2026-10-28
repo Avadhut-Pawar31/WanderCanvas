@@ -156,7 +156,7 @@ async function runTestSuite() {
   console.log(`   ✓ Collaborative trip created with invite code: ${testTrip.invitationCode}`);
 
   // Test joining with invite code
-  const joined = CollaborationService.joinTripByInviteCode(testTrip.invitationCode, {
+  const joined = await CollaborationService.joinTripByInviteCode(testTrip.invitationCode, {
     id: 'friend-2',
     name: 'Sofia',
     email: 'sofia@wandercanvas.com',

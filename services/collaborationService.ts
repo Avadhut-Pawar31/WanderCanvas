@@ -189,55 +189,7 @@ export class CollaborationService {
         return this.getAllTrips();
       }
 
-      const mapped: CollaborativeTrip[] = dbTrips.map((dt: any) => {
-        const members: TripMember[] = (dt.trip_members || []).map((m: any) => ({
-          userId: m.user_id,
-          name: m.profiles?.full_name || 'Traveler',
-          email: m.profiles?.email || '',
-          avatar: m.profiles?.avatar_url,
-          role: m.role as TripMemberRole,
-          joinedAt: m.joined_at,
-        }));
-
-        const stops: Waypoint[] = (dt.stops || []).map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          address: s.address,
-          coordinates: s.coordinates,
-          category: s.category,
-          detourKm: Number(s.detour_km) || 0,
-          detourMinutes: Number(s.detour_minutes) || 0,
-          order: s.stop_order,
-          notes: s.notes,
-          suggestedBy: s.suggested_by,
-        }));
-
-        return {
-          id: dt.id,
-          name: dt.name,
-          description: dt.description,
-          coverImage: dt.cover_image,
-          origin: dt.origin,
-          originCoordinates: dt.origin_coordinates,
-          destination: dt.destination,
-          destinationCoordinates: dt.destination_coordinates,
-          startDate: dt.start_date,
-          endDate: dt.end_date,
-          budget: Number(dt.budget) || 0,
-          travelMode: dt.travel_mode,
-          groupSize: dt.group_size,
-          preferences: dt.preferences || [],
-          washroomPreference: dt.washroom_preference,
-          ownerId: dt.owner_id,
-          members,
-          invitationCode: dt.invitation_code,
-          stops,
-          suggestions: [],
-          messages: [],
-          createdAt: dt.created_at,
-          updatedAt: dt.updated_at,
-        };
-      });
+      const mapped: CollaborativeTrip[] = dbTrips.map((dt: any) => this.mapDbTripToCollaborativeTrip(dt));
 
       // Merge with local offline trips so seed trips are preserved
       const local = this.getAllTrips();
@@ -253,6 +205,118 @@ export class CollaborationService {
     } catch (err) {
       console.warn('fetchUserTripsFromSupabase notice:', err);
       return this.getAllTrips();
+    }
+  }
+
+  /**
+   * Helper to map a Supabase DB trip row to the domain CollaborativeTrip model.
+   */
+  static mapDbTripToCollaborativeTrip(dt: any): CollaborativeTrip {
+    const members: TripMember[] = (dt.trip_members || []).map((m: any) => ({
+      userId: m.user_id,
+      name: m.profiles?.full_name || 'Traveler',
+      email: m.profiles?.email || '',
+      avatar: m.profiles?.avatar_url,
+      role: m.role as TripMemberRole,
+      joinedAt: m.joined_at,
+    }));
+
+    const stops: Waypoint[] = (dt.stops || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      address: s.address,
+      coordinates: s.coordinates,
+      category: s.category,
+      detourKm: Number(s.detour_km) || 0,
+      detourMinutes: Number(s.detour_minutes) || 0,
+      order: s.stop_order,
+      notes: s.notes,
+      suggestedBy: s.suggested_by,
+    }));
+
+    return {
+      id: dt.id,
+      name: dt.name,
+      description: dt.description,
+      coverImage: dt.cover_image,
+      origin: dt.origin,
+      originCoordinates: dt.origin_coordinates,
+      destination: dt.destination,
+      destinationCoordinates: dt.destination_coordinates,
+      startDate: dt.start_date,
+      endDate: dt.end_date,
+      budget: Number(dt.budget) || 0,
+      travelMode: dt.travel_mode,
+      groupSize: dt.group_size,
+      preferences: dt.preferences || [],
+      washroomPreference: dt.washroom_preference,
+      ownerId: dt.owner_id,
+      members,
+      invitationCode: dt.invitation_code,
+      stops,
+      suggestions: [],
+      messages: [],
+      createdAt: dt.created_at,
+      updatedAt: dt.updated_at,
+      route: dt.route_summary ? {
+        distanceKm: dt.route_summary.distanceKm || 0,
+        durationMinutes: dt.route_summary.durationMinutes || 0,
+        summary: dt.route_summary.summary || '',
+        travelMode: dt.route_summary.travelMode || dt.travel_mode || 'driving',
+        coordinatesPath: dt.route_summary.coordinatesPath || [],
+        origin: {
+          name: dt.origin,
+          address: dt.origin,
+          coordinates: dt.origin_coordinates || { lat: 0, lng: 0 },
+        },
+        destination: {
+          name: dt.destination,
+          address: dt.destination,
+          coordinates: dt.destination_coordinates || { lat: 0, lng: 0 },
+        },
+        waypoints: stops,
+      } : undefined,
+    };
+  }
+
+  /**
+   * Fetch single trip from Supabase by ID.
+   */
+  static async fetchTripByIdFromSupabase(id: string): Promise<CollaborativeTrip | null> {
+    if (typeof window === 'undefined') return null;
+    try {
+      const supabase = createClient();
+      const { data: dbTrip, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          trip_members (
+            user_id,
+            role,
+            joined_at,
+            profiles:user_id (full_name, avatar_url, email)
+          ),
+          stops (*)
+        `)
+        .eq('id', id)
+        .maybeSingle();
+
+      if (dbTrip && !error) {
+        const mapped = this.mapDbTripToCollaborativeTrip(dbTrip);
+        const allTrips = this.getAllTrips();
+        const existingIdx = allTrips.findIndex(t => t.id === mapped.id);
+        if (existingIdx >= 0) {
+          allTrips[existingIdx] = mapped;
+        } else {
+          allTrips.push(mapped);
+        }
+        this.saveTrips(allTrips);
+        return mapped;
+      }
+      return null;
+    } catch (err) {
+      console.warn('fetchTripByIdFromSupabase notice:', err);
+      return null;
     }
   }
 
@@ -290,15 +354,52 @@ export class CollaborationService {
   }
 
   /**
-   * Join an existing trip by invitation code.
+   * Join an existing trip by invitation code (checks both local storage and real Supabase database).
    */
-  static joinTripByInviteCode(code: string, traveler: { id: string; name: string; email: string; avatar?: string }): CollaborativeTrip | null {
+  static async joinTripByInviteCode(
+    code: string,
+    traveler: { id: string; name: string; email: string; avatar?: string }
+  ): Promise<CollaborativeTrip | null> {
+    const trimmedCode = code.trim().toUpperCase();
+
+    // 1. Check local trips first
     const trips = this.getAllTrips();
-    const trip = trips.find(t => t.invitationCode.toLowerCase() === code.trim().toLowerCase());
+    let trip = trips.find(t => t.invitationCode.toUpperCase() === trimmedCode);
+
+    // 2. If not found locally, query real Supabase database by invitation_code
+    if (!trip && typeof window !== 'undefined') {
+      try {
+        const supabase = createClient();
+        const { data: dbTrip, error } = await supabase
+          .from('trips')
+          .select(`
+            *,
+            trip_members (
+              user_id,
+              role,
+              joined_at,
+              profiles:user_id (full_name, avatar_url, email)
+            ),
+            stops (*)
+          `)
+          .ilike('invitation_code', trimmedCode)
+          .maybeSingle();
+
+        if (dbTrip && !error) {
+          trip = this.mapDbTripToCollaborativeTrip(dbTrip);
+        }
+      } catch (err) {
+        console.warn('Supabase joinTripByInviteCode lookup notice:', err);
+      }
+    }
+
     if (!trip) return null;
 
-    // Check if member already in trip
-    const existingIndex = trip.members.findIndex(m => m.userId === traveler.id || m.email === traveler.email);
+    // 3. Check if member already in trip
+    const existingIndex = trip.members.findIndex(
+      m => m.userId === traveler.id || (traveler.email && m.email === traveler.email)
+    );
+
     if (existingIndex === -1) {
       const newMember: TripMember = {
         userId: traveler.id,
@@ -309,9 +410,34 @@ export class CollaborationService {
         joinedAt: new Date().toISOString(),
       };
       trip.members.push(newMember);
-      this.saveTrips(trips);
+
+      // Persist member to Supabase if valid UUID
+      if (typeof window !== 'undefined' && isUuid(traveler.id) && isUuid(trip.id)) {
+        try {
+          const supabase = createClient();
+          await supabase.from('trip_members').upsert({
+            trip_id: trip.id,
+            user_id: traveler.id,
+            role: 'editor',
+            joined_at: newMember.joinedAt,
+          });
+        } catch (err) {
+          console.warn('Supabase member insertion notice:', err);
+        }
+      }
+
       this.notifyListeners('member_joined', { tripId: trip.id, member: newMember });
     }
+
+    // 4. Save to local storage for instant reactive UI updates
+    const allTrips = this.getAllTrips();
+    const existingTripIdx = allTrips.findIndex(t => t.id === trip!.id);
+    if (existingTripIdx >= 0) {
+      allTrips[existingTripIdx] = trip;
+    } else {
+      allTrips.unshift(trip);
+    }
+    this.saveTrips(allTrips);
 
     return trip;
   }
@@ -425,6 +551,12 @@ export class CollaborationService {
 
         if (dbTrip && !insertError) {
           newTrip.id = dbTrip.id;
+          await supabase.from('trip_members').upsert({
+            trip_id: dbTrip.id,
+            user_id: params.owner.id,
+            role: 'owner',
+            joined_at: newTrip.createdAt,
+          });
         }
       } catch (err) {
         console.warn('Supabase createTrip notice:', err);

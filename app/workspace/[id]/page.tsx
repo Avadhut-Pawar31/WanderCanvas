@@ -29,8 +29,19 @@ export default function TripWorkspacePage() {
     return null;
   });
 
+  const [isLoading, setIsLoading] = useState(!trip);
+
   useEffect(() => {
     if (!tripId) return;
+
+    if (!trip) {
+      CollaborationService.fetchTripByIdFromSupabase(tripId).then((fetched) => {
+        if (fetched) {
+          setTrip(fetched);
+        }
+        setIsLoading(false);
+      });
+    }
 
     // Subscribe to real-time collaboration updates
     const unsubscribe = CollaborationService.subscribeToUpdates((event) => {
@@ -42,7 +53,18 @@ export default function TripWorkspacePage() {
     });
 
     return () => unsubscribe();
-  }, [tripId]);
+  }, [tripId, trip]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F7F5EF] flex items-center justify-center p-6">
+        <div className="flex items-center gap-3 text-sm font-medium text-[#244536]">
+          <div className="w-5 h-5 border-2 border-[#244536] border-t-transparent rounded-full animate-spin" />
+          <span>Connecting to collaborative workspace...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!trip) {
     return (
