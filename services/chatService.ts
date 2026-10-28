@@ -56,11 +56,12 @@ export class ChatService {
   }
 
   private static getRealtimeChannel(tripId: string) {
-    if (typeof window === 'undefined' || !isUuid(tripId)) return null;
+    if (typeof window === 'undefined' || !tripId) return null;
     if (!this.realtimeChannels.has(tripId)) {
       try {
         const supabase = createClient();
-        const channel = supabase.channel(`trip-chat-${tripId}`, {
+        const safeChannelName = `trip-chat-${tripId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        const channel = supabase.channel(safeChannelName, {
           config: {
             broadcast: { self: false },
           },
@@ -75,8 +76,8 @@ export class ChatService {
   }
 
   /**
-   * Listen for real-time messages via both Supabase Realtime (Broadcast + Postgres Changes)
-   * and local BroadcastChannel.
+   * Listen for real-time messages via both Supabase Realtime (Broadcast across all devices + Postgres Changes)
+   * and local BroadcastChannel. Works for all trips (UUIDs, custom slugs, and demo trips).
    */
   static subscribeToTripChat(tripId: string, callback: (message: TripMessage) => void): () => void {
     const unsubscribers: Array<() => void> = [];
@@ -93,28 +94,37 @@ export class ChatService {
       unsubscribers.push(() => localChannel.removeEventListener('message', handler));
     }
 
-    // 2. Supabase Realtime WebSocket subscription (for multi-device / network sync)
-    if (typeof window !== 'undefined' && isUuid(tripId)) {
+    // 2. Supabase Realtime WebSocket subscription (streams across all browsers and devices)
+    if (typeof window !== 'undefined' && tripId) {
       try {
         const supabase = createClient();
-        const realtimeChannel = supabase
-          .channel(`trip-chat-${tripId}`, {
+        const safeChannelName = `trip-chat-${tripId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+
+        let realtimeChannel = this.realtimeChannels.get(tripId);
+        if (!realtimeChannel) {
+          realtimeChannel = supabase.channel(safeChannelName, {
             config: {
               broadcast: { self: false }, // Never echo back to the sending client
             },
-          })
-          // Fast WebSocket direct broadcast between connected clients
+          });
+          this.realtimeChannels.set(tripId, realtimeChannel);
+        }
+
+        realtimeChannel
+          // Fast WebSocket direct broadcast between connected clients across devices
           .on(
             'broadcast',
             { event: 'chat_message' },
-            ({ payload }) => {
+            ({ payload }: { payload: any }) => {
               if (payload && payload.tripId === tripId) {
                 callback(payload as TripMessage);
               }
             }
-          )
-          // Database level listener (for external inserts or background alerts)
-          .on(
+          );
+
+        // Database level listener (for external DB inserts on persistent trips)
+        if (isUuid(tripId)) {
+          realtimeChannel.on(
             'postgres_changes',
             {
               event: 'INSERT',
@@ -122,7 +132,7 @@ export class ChatService {
               table: 'messages',
               filter: `trip_id=eq.${tripId}`,
             },
-            (payload) => {
+            (payload: any) => {
               const row = payload.new as {
                 id: string;
                 trip_id: string;
@@ -154,10 +164,10 @@ export class ChatService {
 
               callback(tripMessage);
             }
-          )
-          .subscribe();
+          );
+        }
 
-        this.realtimeChannels.set(tripId, realtimeChannel);
+        realtimeChannel.subscribe();
 
         unsubscribers.push(() => {
           supabase.removeChannel(realtimeChannel);
@@ -275,7 +285,7 @@ export class ChatService {
       }
     }
 
-    // 2. Broadcast via Supabase Realtime Broadcast (instant network delivery to connected friends)
+    // 2. Broadcast via Supabase Realtime Broadcast (instant WebSocket delivery across devices)
     try {
       const realtimeChannel = this.getRealtimeChannel(params.tripId);
       if (realtimeChannel) {
@@ -299,11 +309,11 @@ export class ChatService {
       }
     }
 
-    // 4. Persist to Supabase messages table with matching UUID
+    // 4. Persist to Supabase messages table if tripId is a persistent UUID
     if (typeof window !== 'undefined' && isUuid(params.tripId)) {
       try {
         const supabase = createClient();
-        let effectiveSenderId = params.senderId;
+        const effectiveSenderId = params.senderId;
 
         if (isUuid(effectiveSenderId)) {
           this.persistMessageToSupabase(supabase, {
@@ -316,7 +326,7 @@ export class ChatService {
             replyToId: params.replyToId,
           });
         } else {
-          // Resolve authenticated user ID if senderId was a placeholder (e.g. 'user-me' or 'traveler-guest')
+          // Resolve authenticated user ID if senderId was a placeholder
           supabase.auth.getUser().then(({ data: { user } }) => {
             if (user && isUuid(user.id)) {
               this.persistMessageToSupabase(supabase, {
@@ -337,6 +347,50 @@ export class ChatService {
     }
 
     return message;
+  }
+
+  /**
+   * Trigger intelligent Concierge assistant reply inside the trip group chat.
+   * Responds to greetings, questions about washrooms, food, detours, and recommendations.
+   */
+  static triggerConciergeAutoReply(tripId: string, userText: string, senderName: string): void {
+    if (typeof window === 'undefined') return;
+
+    const lower = userText.toLowerCase().trim();
+    let replyText = '';
+
+    // Greetings
+    if (/^(hi|hello|hey|yo|namaste|good\s*(morning|afternoon|evening))\b/i.test(lower)) {
+      replyText = `Hello ${senderName || 'there'}! 👋 I'm your WanderCanvas Concierge. How can I help your group with route planning, verified hygiene stops, or recommendations today?`;
+    } 
+    // Hygiene / Restroom / Washroom inquiries
+    else if (/(washroom|restroom|toilet|hygiene|clean|sanit|bathroom)/i.test(lower)) {
+      replyText = `Restroom check verified! 🧼 Along this corridor, Mapro Garden and Venna Lake Municipal Pier have clean touchless facilities with verified scores. Check the "Hygiene & Washrooms" tab for full audit reports!`;
+    } 
+    // Food / Lunch / Restaurants
+    else if (/(food|eat|lunch|dinner|restaurant|cafe|snack|mapro|strawberry)/i.test(lower)) {
+      replyText = `Culinary recommendation: Mapro Garden is highly rated for strawberry cream and wood-fired pizzas (+0 min detour). Bagicha Corner in Wai is also excellent for fresh corn patties!`;
+    } 
+    // Permit / Kaas Plateau / Scenery
+    else if (/(permit|kaas|flower|pass|entry|ticket)/i.test(lower)) {
+      replyText = `Permit notice: Kaas Pathar floral plateau requires online dynamic slots to protect the UNESCO biodiversity. Pre-booking via the official forest portal is recommended for weekend visits.`;
+    }
+    // Questions or help
+    else if (/(\?|help|where|recommend|suggest|how|what)/i.test(lower)) {
+      replyText = `I'm on it! 🗺️ You can propose any stop directly from the "Route & Map Planner" tab, or vote on group stops in "Shared Itinerary & Voting". For AI itinerary generation, head to the "AI Travel Assistant" tab!`;
+    }
+
+    if (replyText) {
+      setTimeout(() => {
+        this.sendMessage({
+          tripId,
+          senderId: 'system',
+          senderName: 'WanderCanvas Concierge',
+          content: replyText,
+          type: 'text',
+        });
+      }, 700);
+    }
   }
 
   private static async persistMessageToSupabase(

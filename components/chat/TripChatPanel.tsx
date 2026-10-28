@@ -84,6 +84,9 @@ export function TripChatPanel({
       return [...prev, sent];
     });
     setInputText('');
+
+    // Trigger WanderCanvas Concierge response for interactive assistant replies
+    ChatService.triggerConciergeAutoReply(tripId, trimmed, currentUserName);
   };
 
   return (
@@ -114,14 +117,33 @@ export function TripChatPanel({
         ) : (
           messages.map((msg) => {
             const isMe = msg.senderId === currentUserId;
-            const isSystem = msg.senderId === 'system';
+            const isConcierge = msg.senderName === 'WanderCanvas Concierge' || msg.senderId === 'concierge';
+            const isSystemAlert = msg.type === 'itinerary_update' || msg.type === 'vote_alert';
 
-            if (isSystem || msg.type === 'itinerary_update' || msg.type === 'vote_alert') {
+            if (isSystemAlert) {
               return (
                 <div key={msg.id} className="flex justify-center my-3">
                   <div className="px-4 py-2 rounded-xl bg-[#F0F3EF] border border-[#244536]/10 text-xs text-[#244536] max-w-md text-center flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5 text-[#C78363] flex-shrink-0" />
                     <span>{msg.content}</span>
+                  </div>
+                </div>
+              );
+            }
+
+            if (isConcierge) {
+              return (
+                <div key={msg.id} className="flex flex-col items-start my-2 max-w-lg">
+                  <div className="flex items-center gap-1.5 mb-1 text-[11px] text-[#5F6761]">
+                    <span className="font-semibold text-[#C78363] flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-[#C78363]" />
+                      WanderCanvas Concierge
+                    </span>
+                    <span>·</span>
+                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl text-xs leading-relaxed space-y-2 shadow-xs bg-[#F2F6F3] text-[#244536] border border-[#244536]/15 rounded-bl-none">
+                    <p>{msg.content}</p>
                   </div>
                 </div>
               );
