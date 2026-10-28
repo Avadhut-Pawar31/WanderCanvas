@@ -2,9 +2,10 @@
 
 import { motion } from 'framer-motion';
 import { DestinationData } from '@/types';
-import { Calendar, Cloud, DollarSign } from 'lucide-react';
+import { Calendar, Cloud, DollarSign, Hotel } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useState } from 'react';
+import { HotelFinderModal } from '@/components/hotels/HotelFinderModal';
 
 interface DestinationOverviewProps {
   destination: DestinationData;
@@ -12,45 +13,63 @@ interface DestinationOverviewProps {
 
 export function DestinationOverview({ destination }: DestinationOverviewProps) {
   const [imageError, setImageError] = useState(false);
+  const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
   
   const fallbackImage = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&q=85';
 
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="relative overflow-hidden rounded-3xl border border-[#244536]/10 shadow-sm"
-    >
-      {/* Hero Banner */}
-      <div className="relative h-96 bg-[#E7ECE5]">
-        <img
-          src={imageError ? fallbackImage : destination.heroImage}
-          alt={destination.name}
-          onError={() => setImageError(true)}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-        
-        <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-10">
-          <motion.h1
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="text-4xl sm:text-6xl font-serif font-bold text-white mb-3 tracking-tight"
-          >
-            {destination.name}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="text-sm sm:text-base text-white/90 max-w-3xl leading-relaxed"
-          >
-            {destination.description}
-          </motion.p>
+    <>
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative overflow-hidden rounded-3xl border border-[#244536]/10 shadow-sm"
+      >
+        {/* Hero Banner */}
+        <div className="relative h-96 bg-[#E7ECE5]">
+          <img
+            src={imageError ? fallbackImage : destination.heroImage}
+            alt={destination.name}
+            onError={() => setImageError(true)}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+          
+          <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-10">
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="text-4xl sm:text-6xl font-serif font-bold text-white mb-3 tracking-tight"
+            >
+              {destination.name}
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="text-sm sm:text-base text-white/90 max-w-3xl leading-relaxed"
+            >
+              {destination.description}
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="pt-4 flex items-center gap-3"
+            >
+              <button
+                type="button"
+                onClick={() => setIsHotelModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white hover:bg-white/90 text-[#244536] font-semibold text-xs shadow-lg transition border border-white/20 active:scale-95"
+              >
+                <Hotel className="w-4 h-4 text-[#C78363]" />
+                <span>Find Hotels in {destination.name}</span>
+              </button>
+            </motion.div>
+          </div>
         </div>
-      </div>
 
       {/* Editorial Key Stats Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 sm:p-8 bg-white border-t border-[#244536]/10">
@@ -102,5 +121,12 @@ export function DestinationOverview({ destination }: DestinationOverviewProps) {
         </motion.div>
       </div>
     </motion.section>
-  );
+
+    <HotelFinderModal
+      isOpen={isHotelModalOpen}
+      onClose={() => setIsHotelModalOpen(false)}
+      destinationName={destination.name}
+    />
+  </>
+);
 }

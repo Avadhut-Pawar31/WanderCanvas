@@ -15,6 +15,7 @@ import { SharedItineraryPanel } from '@/components/collaboration/SharedItinerary
 import { TripChatPanel } from '@/components/chat/TripChatPanel';
 import { AITravelAssistantPanel } from '@/components/ai/AITravelAssistantPanel';
 import { HygieneReportModal } from '@/components/hygiene/HygieneReportModal';
+import { HotelFinderModal } from '@/components/hotels/HotelFinderModal';
 import { 
   ArrowLeft, 
   UserPlus, 
@@ -25,7 +26,8 @@ import {
   Copy, 
   Link2,
   Filter, 
-  ShieldCheck
+  ShieldCheck,
+  Hotel
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,6 +45,7 @@ export function TripWorkspaceView({
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [inspectingPlace, setInspectingPlace] = useState<Place | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -220,6 +223,14 @@ export function TripWorkspaceView({
                 </div>
               ))}
             </div>
+
+            <button
+              onClick={() => setIsHotelModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-[#244536] text-white hover:bg-[#1a3328] text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <Hotel className="w-3.5 h-3.5 text-[#C78363]" />
+              <span>Find Hotels in {trip.destination}</span>
+            </button>
 
             <button
               onClick={() => setIsInviteModalOpen(true)}
@@ -638,6 +649,13 @@ export function TripWorkspaceView({
           </div>
         </div>
       )}
+
+      {/* Native In-App Hotel Discovery & Booking Modal */}
+      <HotelFinderModal
+        isOpen={isHotelModalOpen}
+        onClose={() => setIsHotelModalOpen(false)}
+        destinationName={trip.destination}
+      />
     </div>
   );
 }

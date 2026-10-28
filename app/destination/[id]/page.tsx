@@ -43,6 +43,7 @@ import toast from 'react-hot-toast';
 import { HierarchicalGeoService } from '@/services/hierarchicalGeoService';
 import { GlobalGeocodingService } from '@/services/globalGeocodingService';
 import { GeoEntity, GeoPlaceCategory } from '@/types/hierarchicalGeo';
+import { HotelFinderModal } from '@/components/hotels/HotelFinderModal';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&q=85';
 
@@ -55,6 +56,7 @@ export default function DestinationGuidePage() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [isSaved, setIsSaved] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
 
   // Retrieve entity with resilient live geocoded fallback (TripCircle parity)
   const [entity, setEntity] = useState<GeoEntity | null>(() => {
@@ -326,6 +328,13 @@ export default function DestinationGuidePage() {
 
             {/* Quick Actions */}
             <div className="flex flex-wrap lg:flex-col gap-2.5 shrink-0">
+              <Button
+                onClick={() => setIsHotelModalOpen(true)}
+                className="bg-white hover:bg-white/90 text-[#244536] rounded-xl px-5 text-xs font-semibold shadow-md flex items-center gap-2"
+              >
+                <Hotel className="w-4 h-4 text-[#C78363]" />
+                <span>Find Hotels in {entity.canonicalName}</span>
+              </Button>
               <Button
                 onClick={() => router.push(`/workspace/trip-mahabaleshwar-kaas`)}
                 className="bg-[#C78363] hover:bg-[#B37253] text-white rounded-xl px-5 text-xs font-semibold shadow-md flex items-center gap-2"
@@ -661,6 +670,13 @@ export default function DestinationGuidePage() {
           </div>
         )}
       </section>
+
+      {/* Native In-App Hotel Discovery & Booking Modal */}
+      <HotelFinderModal
+        isOpen={isHotelModalOpen}
+        onClose={() => setIsHotelModalOpen(false)}
+        destinationName={entity.canonicalName}
+      />
     </main>
   );
 }
