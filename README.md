@@ -1,8 +1,22 @@
 # WanderCanvas — Collaborative, Hygiene-Aware AI Travel Planning Platform 🌍✨
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-wandercanv.netlify.app-244536?style=for-the-badge&logo=netlify&logoColor=white)](https://wandercanv.netlify.app/)
+[![GitHub repo](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Avadhut-Pawar31/WanderCanvas)
+[![Next.js](https://img.shields.io/badge/Next.js_16-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+
+> 🌐 **Live Web Application**: [**https://wandercanv.netlify.app/**](https://wandercanv.netlify.app/)  
 > *"Less planning. More wondering."*
 
 **WanderCanvas** is a production-oriented, collaborative travel-planning platform that helps travelers plan journeys, discover suitable routes, evaluate verified hygiene evidence along highway and scenic corridors, find clean washrooms, and collaborate with friends in real time.
+
+---
+
+## 🔗 Direct Access & Links
+- **Live Deployment**: [https://wandercanv.netlify.app/](https://wandercanv.netlify.app/)
+- **Featured Journey (Mahabaleshwar + Kaas Plateau)**: [https://wandercanv.netlify.app/workspace/trip-mahabaleshwar-kaas](https://wandercanv.netlify.app/workspace/trip-mahabaleshwar-kaas)
+- **Reference Trip (Amalfi Coast Classic)**: [https://wandercanv.netlify.app/workspace/trip-amalfi-classic](https://wandercanv.netlify.app/workspace/trip-amalfi-classic)
+- **Global Destinations Explore**: [https://wandercanv.netlify.app/explore](https://wandercanv.netlify.app/explore)
 
 ---
 
