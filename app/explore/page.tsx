@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Compass, 
@@ -23,12 +23,26 @@ import {
   UtensilsCrossed,
   Palette,
   MountainSnow,
-  Car
+  Car,
+  Fuel,
+  Hotel,
+  Droplets,
+  Zap,
+  Navigation,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ExploreService } from '@/services/exploreService';
+import { HierarchicalGeoService } from '@/services/hierarchicalGeoService';
+import { GlobalHierarchicalSearch } from '@/components/search/GlobalHierarchicalSearch';
+import { 
+  GeoEntity, 
+  GeoEntityType, 
+  GeoPlaceCategory, 
+  HierarchicalBrowseState 
+} from '@/types/hierarchicalGeo';
 import { ContinentId, CountryCategory, Country } from '@/types/geography';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=85';
@@ -37,66 +51,61 @@ function ExploreContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Navigation state (Nested Hierarchy: Continent -> Country -> Administrative Subdivision)
-  const [expandedContinentId, setExpandedContinentId] = useState<ContinentId | null>('asia');
-  const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null);
-  const [selectedSubdivisionId, setSelectedSubdivisionId] = useState<string | 'all'>('all');
-  const [selectedCategory, setSelectedCategory] = useState<CountryCategory | 'all'>('all');
+  // Navigation state (Hierarchical Entity Drill-Down)
+  const [activeEntityId, setActiveEntityId] = useState<string | null>(null);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<GeoPlaceCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [savedNames, setSavedNames] = useState<string[]>([]);
+  const [selectedDetailEntity, setSelectedDetailEntity] = useState<GeoEntity | null>(null);
 
-  // Initialize search from URL query parameter (e.g. from Navbar search or direct links)
+  // Initialize search or entity from URL query parameters
   useEffect(() => {
+    const entityId = searchParams.get('entityId');
     const q = searchParams.get('q');
+
+    if (entityId) {
+      setActiveEntityId(entityId);
+    }
     if (q) {
       setSearchQuery(q);
-      setSelectedCountryId(null);
-      setSelectedSubdivisionId('all');
-      setSelectedCategory('all');
     }
   }, [searchParams]);
 
-  // Metadata retrieval
-  const continents = useMemo(() => ExploreService.getContinents(), []);
-  
-  const activeCountry = useMemo(() => {
-    if (!selectedCountryId) return null;
-    return ExploreService.getCountryById(selectedCountryId);
-  }, [selectedCountryId]);
+  // Hierarchical browse state from HierarchicalGeoService
+  const browseState: HierarchicalBrowseState = useMemo(() => {
+    return HierarchicalGeoService.getBrowseState(activeEntityId || undefined);
+  }, [activeEntityId]);
 
-  const activeContinent = useMemo(() => {
-    if (activeCountry) {
-      return ExploreService.getContinentById(activeCountry.continentId);
-    }
-    if (expandedContinentId) {
-      return ExploreService.getContinentById(expandedContinentId);
-    }
-    return null;
-  }, [activeCountry, expandedContinentId]);
+  // Current entity if selected
+  const currentEntity = browseState.currentEntity;
+  const breadcrumbs = browseState.breadcrumbs;
 
-  // Filtered destinations for the active country/continent view
-  const filteredDestinations = useMemo(() => {
-    return ExploreService.getDestinations({
-      continentId: activeCountry ? activeCountry.continentId : (expandedContinentId || undefined),
-      countryId: selectedCountryId || undefined,
-      subdivisionId: selectedSubdivisionId,
-      category: selectedCategory,
-      searchQuery: searchQuery.trim() || undefined,
+  // Filtered children based on active category
+  const filteredLocalities = useMemo(() => {
+    if (selectedCategoryFilter === 'all') return browseState.childLocalities;
+    return browseState.childLocalities.filter((loc) => loc.category === selectedCategoryFilter);
+  }, [browseState.childLocalities, selectedCategoryFilter]);
+
+  const filteredAttractions = useMemo(() => {
+    if (selectedCategoryFilter === 'all') return browseState.childAttractions;
+    return browseState.childAttractions.filter((att) => att.category === selectedCategoryFilter);
+  }, [browseState.childAttractions, selectedCategoryFilter]);
+
+  const filteredBusinesses = useMemo(() => {
+    if (selectedCategoryFilter === 'all') return browseState.childBusinesses;
+    return browseState.childBusinesses.filter((b) => {
+      if (selectedCategoryFilter === 'hotel') return b.category === 'hotel' || b.category === 'resort';
+      if (selectedCategoryFilter === 'restaurant') return b.category === 'restaurant' || b.category === 'cafe';
+      return b.category === selectedCategoryFilter;
     });
-  }, [activeCountry, expandedContinentId, selectedCountryId, selectedSubdivisionId, selectedCategory, searchQuery]);
+  }, [browseState.childBusinesses, selectedCategoryFilter]);
 
-  // Global search destinations across all continents when search query is typed
-  const searchResults = useMemo(() => {
+  // Direct search results if user searched for specific string
+  const directSearchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    return ExploreService.getDestinations({
-      searchQuery: searchQuery.trim(),
-    });
+    return HierarchicalGeoService.search(searchQuery.trim(), { limit: 18 });
   }, [searchQuery]);
 
-  // Global derived stats
-  const stats = useMemo(() => ExploreService.getStats(), []);
-
-  // Save / Bookmark handler
   const toggleSave = (name: string) => {
     const exists = savedNames.includes(name);
     if (exists) {
@@ -108,256 +117,183 @@ function ExploreContent() {
     }
   };
 
-  // Category Icon helper
-  const getCategoryIcon = (cat: CountryCategory) => {
-    switch (cat) {
-      case 'regions-cities': return <Building2 className="w-3.5 h-3.5" />;
-      case 'natural-attractions': return <TreePine className="w-3.5 h-3.5" />;
-      case 'heritage-history': return <Landmark className="w-3.5 h-3.5" />;
-      case 'regional-cuisine': return <UtensilsCrossed className="w-3.5 h-3.5" />;
-      case 'arts-architecture': return <Palette className="w-3.5 h-3.5" />;
-      case 'adventure-outdoors': return <MountainSnow className="w-3.5 h-3.5" />;
-      case 'road-trips': return <Car className="w-3.5 h-3.5" />;
-      default: return <Compass className="w-3.5 h-3.5" />;
-    }
-  };
-
-  // All destinations for the currently selected country
-  const countryDestinations = useMemo(() => {
-    if (!selectedCountryId) return [];
-    return ExploreService.getDestinations({ countryId: selectedCountryId });
-  }, [selectedCountryId]);
-
-  // Destinations within the current subdivision scope
-  const activeScopeDestinations = useMemo(() => {
-    if (!selectedCountryId) return [];
-    if (selectedSubdivisionId === 'all') return countryDestinations;
-    return countryDestinations.filter((d) => d.subdivisionId === selectedSubdivisionId);
-  }, [countryDestinations, selectedCountryId, selectedSubdivisionId]);
-
-  const handleSubdivisionSelect = (subId: string) => {
-    setSelectedSubdivisionId(subId);
-    if (selectedCategory !== 'all') {
-      const exists = countryDestinations.some(
-        (d) => (subId === 'all' || d.subdivisionId === subId) && d.category === selectedCategory
-      );
-      if (!exists) {
-        setSelectedCategory('all');
-      }
-    }
-  };
-
-  const handleContinentToggle = (continentId: ContinentId) => {
-    if (expandedContinentId === continentId) {
-      setExpandedContinentId(null);
-    } else {
-      setExpandedContinentId(continentId);
-    }
-  };
-
-  const handleSelectCountry = (country: Country) => {
-    setSelectedCountryId(country.id);
-    setExpandedContinentId(country.continentId);
-    setSelectedSubdivisionId('all');
-    setSelectedCategory('all');
+  const handleEntityDrillDown = (entity: GeoEntity) => {
+    setActiveEntityId(entity.id);
+    setSelectedCategoryFilter('all');
     setSearchQuery('');
+    router.push(`/explore?entityId=${encodeURIComponent(entity.id)}&q=${encodeURIComponent(entity.canonicalName)}`, { scroll: false });
   };
 
-  const handleBackToCatalogue = () => {
-    setSelectedCountryId(null);
-    setSelectedSubdivisionId('all');
-    setSelectedCategory('all');
+  const handleBreadcrumbClick = (entityId: string | null) => {
+    setActiveEntityId(entityId);
+    setSelectedCategoryFilter('all');
+    setSearchQuery('');
+    if (entityId) {
+      router.push(`/explore?entityId=${encodeURIComponent(entityId)}`, { scroll: false });
+    } else {
+      router.push('/explore', { scroll: false });
+    }
   };
 
   return (
     <main className="min-h-screen bg-[#F7F5EF] text-[#292D2A] pb-24">
       {/* ------------------------------------------------------------------------ */}
-      {/* HEADER & BREADCRUMB NAVIGATION */}
+      {/* 1. EDITORIAL HEADER & PROMINENT HIERARCHICAL SEARCH */}
       {/* ------------------------------------------------------------------------ */}
-      <section className="bg-white border-b border-[#244536]/10 py-6 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto space-y-4">
+      <section className="bg-white border-b border-[#244536]/10 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-6">
           {/* Breadcrumb Path */}
-          <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-2 text-xs font-mono text-[#5F6761]">
+          <nav aria-label="Geographic Hierarchy Breadcrumb" className="flex items-center flex-wrap gap-2 text-xs font-mono text-[#5F6761]">
             <button
               type="button"
-              onClick={() => {
-                setSelectedCountryId(null);
-                setSelectedSubdivisionId('all');
-                setSelectedCategory('all');
-                setSearchQuery('');
-              }}
-              className="hover:text-[#244536] transition flex items-center gap-1.5 font-medium"
+              onClick={() => handleBreadcrumbClick(null)}
+              className={`hover:text-[#244536] transition flex items-center gap-1.5 font-medium ${
+                !currentEntity ? 'text-[#244536] font-bold' : ''
+              }`}
             >
               <Globe className="w-3.5 h-3.5 text-[#244536]" />
-              <span>Explore Catalogue</span>
+              <span>Global Catalogue</span>
             </button>
 
-            {activeContinent && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-[#5F6761]/40" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCountryId(null);
-                    setSelectedSubdivisionId('all');
-                    setSelectedCategory('all');
-                    setExpandedContinentId(activeContinent.id);
-                  }}
-                  className={`hover:text-[#244536] transition font-medium ${
-                    !activeCountry ? 'text-[#244536] font-bold' : ''
-                  }`}
-                >
-                  {activeContinent.name}
-                </button>
-              </>
-            )}
-
-            {activeCountry && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-[#5F6761]/40" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSubdivisionId('all');
-                    setSelectedCategory('all');
-                  }}
-                  className={`hover:text-[#244536] transition font-medium ${
-                    selectedSubdivisionId === 'all' ? 'text-[#244536] font-bold' : ''
-                  }`}
-                >
-                  {activeCountry.flag} {activeCountry.name} ({activeCountry.isoCode})
-                </button>
-              </>
-            )}
-
-            {activeCountry && selectedSubdivisionId !== 'all' && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-[#5F6761]/40" />
-                <span className="text-[#244536] font-bold">
-                  {activeCountry.subdivisions.find((s) => s.id === selectedSubdivisionId)?.name || selectedSubdivisionId}
-                </span>
-              </>
-            )}
+            {breadcrumbs.map((crumb, idx) => {
+              const isLast = idx === breadcrumbs.length - 1;
+              return (
+                <React.Fragment key={crumb.id}>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#5F6761]/40 flex-shrink-0" />
+                  <button
+                    type="button"
+                    onClick={() => handleBreadcrumbClick(crumb.id)}
+                    className={`hover:text-[#244536] transition font-medium ${
+                      isLast ? 'text-[#244536] font-bold underline decoration-[#C78363] decoration-2' : ''
+                    }`}
+                  >
+                    {crumb.name}
+                  </button>
+                </React.Fragment>
+              );
+            })}
           </nav>
 
-          {/* Dynamic Editorial Title & Search */}
+          {/* Title and Tagline */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              {activeCountry ? (
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#244536]/10 text-[#244536] text-xs font-mono uppercase tracking-wider mb-2">
-                    <span>{activeCountry.flag}</span>
-                    <span>{activeCountry.continentId.toUpperCase()} • ISO {activeCountry.isoCode} • {activeCountry.capital}</span>
-                  </div>
-                  <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#244536]">
-                    {activeCountry.name}
-                  </h1>
-                  <p className="text-sm sm:text-base text-[#5F6761] mt-1.5 max-w-2xl leading-relaxed">
-                    {activeCountry.description}
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#244536]/10 text-[#244536] text-xs font-mono uppercase tracking-wider mb-2">
-                    <Sparkles className="w-3.5 h-3.5 text-[#C78363]" />
-                    <span>Nested Geographic Catalogue</span>
-                  </div>
-                  <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#244536] tracking-tight">
-                    Explore the World by Continent &amp; Country
-                  </h1>
-                  <p className="text-sm sm:text-base text-[#5F6761] mt-1.5 max-w-2xl leading-relaxed">
-                    A balanced global travel discovery system. Discover world wonders like the Taj Mahal, Eiffel Tower, and Colosseum, alongside authentic local hill circuits and cultural sanctuaries.
-                  </p>
-                </div>
-              )}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#244536]/8 text-xs font-mono font-semibold text-[#244536] mb-2">
+                <Compass className="w-3.5 h-3.5 text-[#C78363]" />
+                <span>DEEP GEOGRAPHIC CATALOGUE &amp; HIERARCHICAL DISCOVERY</span>
+              </div>
+              <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#244536]">
+                {currentEntity ? currentEntity.canonicalName : 'Explore The World'}
+              </h1>
+              <p className="text-sm sm:text-base text-[#5F6761] max-w-2xl mt-1 leading-relaxed">
+                {currentEntity
+                  ? currentEntity.description
+                  : 'Discover verified locations from continents down to districts, towns, villages, waterfalls, and local petrol pumps.'}
+              </p>
             </div>
 
-            {/* Global Search Bar */}
-            <div className="relative w-full md:w-96">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#244536]/50 pointer-events-none">
-                <Search className="w-4 h-4" />
+            {/* Catalogue Scale Metrics */}
+            <div className="flex items-center gap-3 bg-[#FAF8F5] px-4 py-2.5 rounded-2xl border border-[#244536]/10 text-xs font-mono text-[#5F6761]">
+              <div>
+                <span className="font-bold text-[#244536]">{browseState.stats.totalContinents}</span> Continents
               </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Eiffel, Taj Mahal, Mahabaleshwar, 7 Wonders..."
-                className="w-full pl-10 pr-9 py-2.5 bg-[#F7F5EF] rounded-xl border border-[#244536]/15 text-xs text-[#292D2A] placeholder:text-[#5F6761]/60 focus:outline-hidden focus:border-[#244536] focus:bg-white transition shadow-xs"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#5F6761]/60 hover:text-[#292D2A]"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <span>•</span>
+              <div>
+                <span className="font-bold text-[#244536]">{browseState.stats.totalCountries}</span> Countries
+              </div>
+              <span>•</span>
+              <div>
+                <span className="font-bold text-[#244536]">{browseState.stats.totalAdministrativeAreas}</span> Admin Regions
+              </div>
+              <span>•</span>
+              <div>
+                <span className="font-bold text-[#244536]">{browseState.stats.totalCitiesLocalities}</span> Localities
+              </div>
             </div>
           </div>
 
-          {/* Trending Discovery Quick Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-[#244536]/8">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#5F6761] mr-1 font-semibold">
-              Popular Circuits:
+          {/* Hero Search Bar with Global Hierarchical Autocomplete */}
+          <div className="pt-2">
+            <GlobalHierarchicalSearch
+              variant="hero"
+              initialQuery={searchQuery}
+              onSelectEntity={(entity) => handleEntityDrillDown(entity)}
+              placeholder="Type any continent, state, town (e.g. 'Mahabaleshwar'), village (e.g. 'Bhilar'), or 'petrol pump in Mahabaleshwar'..."
+            />
+          </div>
+
+          {/* Category Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 text-xs no-scrollbar">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#5F6761] mr-1 font-semibold whitespace-nowrap">
+              Filter by Category:
             </span>
             {[
-              { label: '🏛️ The 7 Wonders', query: '7 Wonders' },
-              { label: '🗼 Eiffel Tower', query: 'Eiffel Tower' },
-              { label: '🕌 Taj Mahal', query: 'Taj Mahal' },
-              { label: '🍓 Mahabaleshwar', query: 'Mahabaleshwar' },
-              { label: '🏺 Colosseum', query: 'Colosseum' },
-              { label: '🪨 Petra', query: 'Petra' },
-              { label: '⛰️ Machu Picchu', query: 'Machu Picchu' },
-              { label: '🧗 Mont Blanc', query: 'Mont Blanc' },
-              { label: '🌿 Living Root Bridges', query: 'Living Root Bridge' },
-              { label: '🎭 Regional Heritage', query: 'heritage' },
-            ].map((pill) => (
-              <button
-                key={pill.query}
-                type="button"
-                onClick={() => {
-                  setSelectedCountryId(null);
-                  setSelectedSubdivisionId('all');
-                  setSelectedCategory('all');
-                  setSearchQuery(pill.query);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                  searchQuery.toLowerCase() === pill.query.toLowerCase()
-                    ? 'bg-[#244536] text-white font-semibold shadow-xs'
-                    : 'bg-[#F7F5EF] text-[#244536] hover:bg-[#244536]/10 border border-[#244536]/10'
-                }`}
-              >
-                {pill.label}
-              </button>
-            ))}
+              { id: 'all', label: 'All Places', icon: Globe },
+              { id: 'waterfall', label: 'Waterfalls & Natural', icon: Droplets },
+              { id: 'heritage', label: 'Heritage & Forts', icon: Landmark },
+              { id: 'viewpoint', label: 'Viewpoints', icon: Sparkles },
+              { id: 'hotel', label: 'Hotels & Resorts', icon: Hotel },
+              { id: 'restaurant', label: 'Dining & Cafes', icon: UtensilsCrossed },
+              { id: 'petrol_pump', label: 'Petrol & EV Fuel', icon: Fuel },
+              { id: 'washroom', label: 'Clean Washrooms', icon: ShieldCheck }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = selectedCategoryFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryFilter(tab.id as any)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all whitespace-nowrap ${
+                    isActive
+                      ? 'bg-[#244536] text-white font-semibold shadow-xs'
+                      : 'bg-[#F7F5EF] text-[#244536] hover:bg-[#244536]/10 border border-[#244536]/10'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ------------------------------------------------------------------------ */}
-      {/* SEARCH RESULTS VIEW (When query is active) */}
+      {/* 2. DIRECT SEARCH RESULTS VIEW (When search query is active) */}
       {/* ------------------------------------------------------------------------ */}
-      {searchQuery.trim() ? (
+      {searchQuery.trim() && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#244536]">
-              Search Results for &ldquo;{searchQuery}&rdquo;
+              Hierarchical Matches for &ldquo;{searchQuery}&rdquo;
             </h2>
             <span className="text-xs font-mono text-[#5F6761]">
-              {searchResults.length} {searchResults.length === 1 ? 'place' : 'places'} found
+              {directSearchResults.length} matching entities found
             </span>
           </div>
 
-          {searchResults.length === 0 ? (
+          {directSearchResults.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-3xl border border-[#244536]/15 space-y-4">
-              <Compass className="w-8 h-8 text-[#C78363] mx-auto animate-bounce" />
-              <h3 className="font-serif text-lg font-medium text-[#244536]">No destinations matched &ldquo;{searchQuery}&rdquo;</h3>
+              <Compass className="w-10 h-10 text-[#C78363] mx-auto animate-bounce" />
+              <h3 className="font-serif text-lg font-medium text-[#244536]">
+                No hierarchical places matched &ldquo;{searchQuery}&rdquo;
+              </h3>
               <p className="text-xs text-[#5F6761] max-w-md mx-auto">
-                Try searching for world icons and regional highlights:
+                Try searching for verified destinations across Maharashtra or international hubs:
               </p>
               <div className="flex flex-wrap justify-center gap-2 pt-1">
-                {['Eiffel Tower', 'Taj Mahal', 'Mahabaleshwar', 'Colosseum', 'Machu Picchu', 'Petra', 'Great Wall', 'Zermatt'].map((term) => (
+                {[
+                  'Maharashtra',
+                  'Satara District',
+                  'Mahabaleshwar',
+                  'Bhilar',
+                  'Lingmala Waterfall',
+                  'Kaas Plateau',
+                  'petrol pump in Mahabaleshwar',
+                  'Tokyo',
+                  'Paris',
+                  'Amalfi Coast'
+                ].map((term) => (
                   <button
                     key={term}
                     type="button"
@@ -368,35 +304,25 @@ function ExploreContent() {
                   </button>
                 ))}
               </div>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="mt-3 px-4 py-2 bg-[#244536] text-white rounded-xl text-xs font-medium"
-                >
-                  Clear Search Query
-                </button>
-              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {searchResults.map((destination) => {
-                const isSaved = savedNames.includes(destination.name);
-                const country = ExploreService.getCountryById(destination.countryId);
-                const subdivision = country?.subdivisions.find((s) => s.id === destination.subdivisionId);
+              {directSearchResults.map(({ entity, breadcrumbs, matchType, matchedQueryToken }) => {
+                const isSaved = savedNames.includes(entity.canonicalName);
 
                 return (
                   <motion.div
-                    key={destination.id}
+                    key={entity.id}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="group bg-white rounded-2xl border border-[#244536]/10 hover:border-[#244536]/30 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                    className="group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
                   >
                     <div>
-                      <div className="relative h-52 w-full overflow-hidden bg-[#E7ECE5]">
+                      {/* Image Header */}
+                      <div className="relative h-48 w-full overflow-hidden bg-[#E7ECE5]">
                         <img
-                          src={destination.image}
-                          alt={destination.name}
+                          src={entity.heroImage || FALLBACK_IMAGE}
+                          alt={entity.canonicalName}
                           onError={(e) => {
                             (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
                           }}
@@ -404,69 +330,76 @@ function ExploreContent() {
                         />
                         <button
                           type="button"
-                          onClick={() => toggleSave(destination.name)}
+                          onClick={() => toggleSave(entity.canonicalName)}
                           className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-md rounded-xl text-[#292D2A]/60 hover:text-[#C78363] hover:bg-white shadow-xs transition"
-                          title={isSaved ? 'Remove from saved' : 'Save destination'}
+                          title={isSaved ? 'Remove from saved' : 'Save place'}
                         >
                           <Heart className={`w-4 h-4 ${isSaved ? 'fill-[#C78363] text-[#C78363]' : ''}`} />
                         </button>
-                        <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl border border-[#244536]/15 shadow-sm flex items-center gap-1 text-[11px] font-bold text-[#244536]">
-                          <ShieldCheck className="w-3.5 h-3.5 text-[#244536]" />
-                          <span>{destination.hygieneScore}/100</span>
+
+                        {/* Entity Type Badge */}
+                        <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl border border-[#244536]/15 shadow-sm text-[11px] font-mono font-bold text-[#244536] uppercase tracking-wider">
+                          {entity.typeLabel || entity.entityType}
                         </div>
-                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 flex-wrap">
-                          {country && (
-                            <span className="px-2 py-0.5 bg-[#C78363]/95 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
-                              {country.flag} {country.name}
-                            </span>
-                          )}
-                          {subdivision && (
-                            <span className="px-2 py-0.5 bg-[#244536]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
-                              {subdivision.name}
-                            </span>
-                          )}
-                        </div>
+
+                        {/* Hygiene badge */}
+                        {entity.metadata?.hygieneScore && (
+                          <div className="absolute bottom-3 left-3 px-2 py-0.5 bg-[#244536]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono text-white flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Hygiene: {entity.metadata.hygieneScore}%</span>
+                          </div>
+                        )}
                       </div>
 
+                      {/* Content */}
                       <div className="p-4 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-serif text-base font-bold text-[#292D2A] group-hover:text-[#244536] transition-colors line-clamp-1">
-                            {destination.name}
-                          </h3>
-                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded-md border border-amber-200/60 text-amber-800 text-[11px] font-semibold shrink-0">
-                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                            <span>{destination.rating}</span>
+                        {/* Breadcrumbs */}
+                        {breadcrumbs.length > 0 && (
+                          <div className="flex items-center flex-wrap gap-1 text-[11px] font-mono text-[#5F6761] line-clamp-1">
+                            {breadcrumbs.map((crumb, idx) => (
+                              <React.Fragment key={crumb.id}>
+                                <span>{crumb.name}</span>
+                                {idx < breadcrumbs.length - 1 && <ChevronRight className="w-3 h-3 text-stone-400" />}
+                              </React.Fragment>
+                            ))}
                           </div>
-                        </div>
+                        )}
+
+                        <h3 className="font-serif text-lg font-bold text-[#244536] group-hover:text-[#C78363] transition-colors">
+                          {entity.canonicalName}
+                        </h3>
+
                         <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
-                          {destination.description}
+                          {entity.description}
                         </p>
+
+                        {entity.metadata?.address && (
+                          <p className="text-[11px] text-[#5F6761] pt-1 truncate">
+                            📍 {entity.metadata.address}
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between gap-3">
+                    {/* Footer Actions */}
+                    <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between">
                       <button
                         type="button"
-                        onClick={() => {
-                          if (country) {
-                            handleSelectCountry(country);
-                            if (subdivision) {
-                              setSelectedSubdivisionId(subdivision.id);
-                            }
-                            setSearchQuery('');
-                          }
-                        }}
-                        className="text-xs font-mono text-[#244536] hover:underline"
+                        onClick={() => setSelectedDetailEntity(entity)}
+                        className="text-xs font-semibold text-[#5F6761] hover:text-[#244536] flex items-center gap-1"
                       >
-                        Explore {country?.name || 'Country'}
+                        <Info className="w-3.5 h-3.5" />
+                        <span>Place Details</span>
                       </button>
-                      <Button
-                        onClick={() => router.push(`/home?destination=${encodeURIComponent(destination.name)}`)}
-                        className="bg-[#244536] text-white hover:bg-[#1B3529] rounded-xl px-3 py-1 text-xs font-medium gap-1 shadow-xs"
+
+                      <button
+                        type="button"
+                        onClick={() => handleEntityDrillDown(entity)}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#244536] group-hover:text-[#C78363] transition-colors"
                       >
-                        <span>Plan Route</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </Button>
+                        <span>Explore Hierarchy</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                      </button>
                     </div>
                   </motion.div>
                 );
@@ -474,191 +407,160 @@ function ExploreContent() {
             </div>
           )}
         </section>
-      ) : activeCountry ? (
-        /* ------------------------------------------------------------------------ */
-        /* LEVEL 3 & 4: DEDICATED COUNTRY LEVEL DISCOVERY WORKSPACE */
-        /* ------------------------------------------------------------------------ */
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
-          {/* Back button & Country Status Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleBackToCatalogue}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-[#244536]/15 hover:border-[#244536] text-xs font-medium text-[#244536] transition shadow-xs self-start"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to {activeContinent?.name || 'Continent'}</span>
-            </button>
+      )}
 
-            <div className="flex items-center gap-4 text-xs font-mono text-[#5F6761]">
-              <span>Currency: <strong className="text-[#244536]">{activeCountry.currency}</strong></span>
-              <span>•</span>
-              <span>Capital: <strong className="text-[#244536]">{activeCountry.capital}</strong></span>
-              <span>•</span>
-              <span>ISO: <strong className="text-[#244536]">{activeCountry.isoCode}</strong></span>
-            </div>
-          </div>
-
-          {/* Level 3: Administrative Subdivisions Bar */}
-          <div className="bg-white rounded-3xl border border-[#244536]/15 p-5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-mono uppercase tracking-wider text-[#244536] font-bold flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#C78363]" />
-                <span>{activeCountry.subdivisionLabel} ({activeCountry.subdivisions.length})</span>
-              </h2>
-              {selectedSubdivisionId !== 'all' && (
-                <button
-                  type="button"
-                  onClick={() => handleSubdivisionSelect('all')}
-                  className="text-xs text-[#C78363] hover:underline"
-                >
-                  Show All {activeCountry.subdivisionLabel}
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              <button
-                type="button"
-                onClick={() => handleSubdivisionSelect('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                  selectedSubdivisionId === 'all'
-                    ? 'bg-[#244536] text-white font-semibold shadow-xs'
-                    : 'bg-[#F7F5EF] text-[#292D2A] hover:bg-[#244536]/10'
-                }`}
-              >
-                <span>All {activeCountry.name}</span>
-                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                  selectedSubdivisionId === 'all' ? 'bg-white/20' : 'bg-black/5'
-                }`}>
-                  {countryDestinations.length}
+      {/* ------------------------------------------------------------------------ */}
+      {/* 3. BROWSABLE HIERARCHY CONTENT (BROAD TO LOCAL) */}
+      {/* ------------------------------------------------------------------------ */}
+      {!searchQuery.trim() && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-12">
+          {/* Subdivisions / Countries / Continents */}
+          {browseState.childSubdivisions.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-[#244536]/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-[#244536]" />
+                  <h2 className="font-serif text-2xl font-bold text-[#244536]">
+                    {!currentEntity
+                      ? 'Browse Continents'
+                      : currentEntity.entityType === 'continent'
+                      ? `Sovereign Nations in ${currentEntity.canonicalName}`
+                      : `Administrative Regions in ${currentEntity.canonicalName}`}
+                  </h2>
+                </div>
+                <span className="text-xs font-mono text-[#5F6761]">
+                  {browseState.childSubdivisions.length} Available
                 </span>
-              </button>
-
-              {activeCountry.subdivisions.map((sub) => {
-                const isSelected = selectedSubdivisionId === sub.id;
-                const subCount = countryDestinations.filter((d) => d.subdivisionId === sub.id).length;
-                return (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() => handleSubdivisionSelect(sub.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-[#244536] text-white font-semibold shadow-xs'
-                        : 'bg-[#F7F5EF] text-[#292D2A] hover:bg-[#244536]/10'
-                    }`}
-                  >
-                    <span>{sub.name}</span>
-                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                      isSelected ? 'bg-white/20' : 'bg-black/5'
-                    }`}>
-                      {subCount}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Level 4: Country-Specific Discovery Categories */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <button
-              type="button"
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                selectedCategory === 'all'
-                  ? 'bg-[#C78363] text-white font-semibold shadow-xs'
-                  : 'bg-white text-[#292D2A] border border-[#244536]/15 hover:bg-[#244536]/5'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>All Highlights</span>
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                selectedCategory === 'all' ? 'bg-white/20' : 'bg-black/5'
-              }`}>
-                {activeScopeDestinations.length}
-              </span>
-            </button>
-
-            {activeCountry.supportedCategories.map((catKey) => {
-              const meta = ExploreService.getCategoryMeta(catKey);
-              const isSelected = selectedCategory === catKey;
-              const count = activeScopeDestinations.filter((d) => d.category === catKey).length;
-              if (count === 0 && selectedCategory !== catKey) return null;
-              return (
-                <button
-                  key={catKey}
-                  type="button"
-                  onClick={() => setSelectedCategory(catKey)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-[#C78363] text-white font-semibold shadow-xs'
-                      : 'bg-white text-[#292D2A] border border-[#244536]/15 hover:bg-[#244536]/5'
-                  }`}
-                >
-                  {getCategoryIcon(catKey)}
-                  <span>{meta.label}</span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
-                    isSelected ? 'bg-white/20' : 'bg-black/5'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Destination Cards Grid for Country */}
-          <div className="space-y-4 pt-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-serif text-xl font-bold text-[#244536]">
-                {selectedSubdivisionId === 'all'
-                  ? `Curated Itineraries in ${activeCountry.name}`
-                  : `${activeCountry.subdivisions.find((s) => s.id === selectedSubdivisionId)?.name} Corridors`}
-              </h3>
-              <span className="text-xs font-mono text-[#5F6761]">
-                {filteredDestinations.length} {filteredDestinations.length === 1 ? 'place' : 'places'} found
-              </span>
-            </div>
-
-            {filteredDestinations.length === 0 ? (
-              <div className="p-10 text-center bg-white rounded-3xl border border-[#244536]/15 space-y-3">
-                <Compass className="w-7 h-7 text-[#C78363] mx-auto animate-bounce" />
-                <h4 className="font-serif text-base font-medium text-[#244536]">No destinations matched the selected category</h4>
-                <p className="text-xs text-[#5F6761] max-w-sm mx-auto">
-                  Try switching back to &ldquo;All Highlights&rdquo; or selecting another administrative subdivision.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSubdivisionId('all');
-                    setSelectedCategory('all');
-                  }}
-                  className="px-3.5 py-1.5 bg-[#244536] text-white rounded-xl text-xs font-medium"
-                >
-                  Show All {activeCountry.name} Places
-                </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredDestinations.map((destination, index) => {
-                  const isSaved = savedNames.includes(destination.name);
-                  const subdivision = activeCountry.subdivisions.find((s) => s.id === destination.subdivisionId);
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {browseState.childSubdivisions.map((sub) => (
+                  <motion.div
+                    key={sub.id}
+                    whileHover={{ y: -3 }}
+                    onClick={() => handleEntityDrillDown(sub)}
+                    className="cursor-pointer group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="relative h-44 w-full overflow-hidden bg-[#E7ECE5]">
+                        <img
+                          src={sub.heroImage || FALLBACK_IMAGE}
+                          alt={sub.canonicalName}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                          }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                        />
+                        <div className="absolute top-2.5 left-2.5 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl text-xs font-serif font-bold text-[#244536] shadow-xs">
+                          {sub.canonicalName}
+                        </div>
+                        <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 bg-[#244536]/90 text-white rounded-md text-[10px] font-mono">
+                          {sub.typeLabel || sub.entityType}
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-1.5">
+                        <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
+                          {sub.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between text-xs font-bold text-[#244536] group-hover:text-[#C78363]">
+                      <span>Open Region &rarr;</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Cities, Towns, Villages & Localities */}
+          {filteredLocalities.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-[#244536]/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-[#C78363]" />
+                  <h2 className="font-serif text-2xl font-bold text-[#244536]">
+                    Cities, Towns &amp; Villages
+                  </h2>
+                </div>
+                <span className="text-xs font-mono text-[#5F6761]">
+                  {filteredLocalities.length} Localities
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {filteredLocalities.map((loc) => (
+                  <motion.div
+                    key={loc.id}
+                    whileHover={{ y: -3 }}
+                    onClick={() => handleEntityDrillDown(loc)}
+                    className="cursor-pointer group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="relative h-40 w-full overflow-hidden bg-[#E7ECE5]">
+                        <img
+                          src={loc.heroImage || FALLBACK_IMAGE}
+                          alt={loc.canonicalName}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                          }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                        />
+                        <div className="absolute top-2.5 left-2.5 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl text-xs font-serif font-bold text-[#244536] shadow-xs">
+                          {loc.canonicalName}
+                        </div>
+                        <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 bg-[#244536]/90 text-white rounded-md text-[10px] font-mono">
+                          {loc.typeLabel || loc.entityType}
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-1.5">
+                        <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
+                          {loc.description}
+                        </p>
+                        {loc.alternateNames.length > 0 && (
+                          <p className="text-[10px] text-stone-400 font-mono truncate">
+                            Aliases: {loc.alternateNames.slice(0, 2).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between text-xs font-bold text-[#244536] group-hover:text-[#C78363]">
+                      <span>Explore Locality &rarr;</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Curated Attractions & POIs */}
+          {filteredAttractions.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-[#244536]/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-600" />
+                  <h2 className="font-serif text-2xl font-bold text-[#244536]">
+                    Curated Attractions &amp; Landmarks
+                  </h2>
+                </div>
+                <span className="text-xs font-mono text-[#5F6761]">
+                  {filteredAttractions.length} Attractions
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredAttractions.map((att) => {
+                  const isSaved = savedNames.includes(att.canonicalName);
                   return (
                     <motion.div
-                      key={destination.id}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: index * 0.04 }}
-                      className="group bg-white rounded-2xl border border-[#244536]/10 hover:border-[#244536]/30 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                      key={att.id}
+                      className="group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
                     >
                       <div>
-                        <div className="relative h-56 w-full overflow-hidden bg-[#E7ECE5]">
+                        <div className="relative h-48 w-full overflow-hidden bg-[#E7ECE5]">
                           <img
-                            src={destination.image}
-                            alt={destination.name}
+                            src={att.heroImage || FALLBACK_IMAGE}
+                            alt={att.canonicalName}
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
                             }}
@@ -666,280 +568,290 @@ function ExploreContent() {
                           />
                           <button
                             type="button"
-                            onClick={() => toggleSave(destination.name)}
-                            className="absolute top-3.5 right-3.5 p-2 bg-white/90 backdrop-blur-md rounded-xl text-[#292D2A]/60 hover:text-[#C78363] hover:bg-white shadow-xs transition"
-                            title={isSaved ? 'Remove from saved' : 'Save destination'}
+                            onClick={() => toggleSave(att.canonicalName)}
+                            className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-md rounded-xl text-[#292D2A]/60 hover:text-[#C78363] hover:bg-white shadow-xs transition"
                           >
                             <Heart className={`w-4 h-4 ${isSaved ? 'fill-[#C78363] text-[#C78363]' : ''}`} />
                           </button>
-                          <div className="absolute top-3.5 left-3.5 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl border border-[#244536]/15 shadow-sm flex items-center gap-1 text-[11px] font-bold text-[#244536]">
-                            <ShieldCheck className="w-3.5 h-3.5 text-[#244536]" />
-                            <span>{destination.hygieneScore}/100</span>
+                          <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl text-xs font-mono font-bold text-[#244536] shadow-xs">
+                            {att.typeLabel || att.category}
                           </div>
-                          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 flex-wrap">
-                            <span className="px-2.5 py-1 bg-[#244536]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium flex items-center gap-1">
-                              {getCategoryIcon(destination.category)}
-                              <span>{destination.categoryLabel || destination.category}</span>
-                            </span>
-                            {subdivision && (
-                              <span className="px-2 py-1 bg-[#C78363]/90 backdrop-blur-sm rounded-lg text-[10px] font-mono uppercase tracking-wider text-white font-medium">
-                                {subdivision.name}
-                              </span>
-                            )}
-                          </div>
+                          {att.metadata?.hygieneScore && (
+                            <div className="absolute bottom-3 left-3 px-2 py-0.5 bg-[#244536]/90 text-white rounded-md text-[10px] font-mono flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>{att.metadata.hygieneScore}% Verified</span>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="p-5 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <h4 className="font-serif text-lg font-bold text-[#292D2A] group-hover:text-[#244536] transition-colors line-clamp-1">
-                                {destination.name}
-                              </h4>
-                              <div className="flex items-center gap-1.5 text-xs text-[#292D2A]/60 mt-0.5">
-                                <MapPin className="w-3.5 h-3.5 text-[#C78363] shrink-0" />
-                                <span className="truncate">{subdivision?.name || activeCountry.name}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-200/60 text-amber-800 text-xs font-semibold shrink-0">
-                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                              <span>{destination.rating}</span>
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-[#292D2A]/70 line-clamp-2 leading-relaxed">
-                            {destination.description}
+                        <div className="p-4 space-y-2">
+                          <h3 className="font-serif text-lg font-bold text-[#244536]">
+                            {att.canonicalName}
+                          </h3>
+                          <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
+                            {att.description}
                           </p>
-
-                          <div className="flex items-center justify-between text-[11px] pt-1 text-[#5F6761]">
-                            <span>Best time: <strong className="text-[#244536]">{destination.bestSeason}</strong></span>
-                            <span className="text-emerald-700 font-medium">✓ {destination.hygieneStatus}</span>
-                          </div>
-
-                          <div className="pt-2 border-t border-[#244536]/8 flex flex-wrap gap-1.5">
-                            {destination.highlights.map((h) => (
-                              <span key={h} className="text-[10px] px-2 py-0.5 bg-[#F7F5EF] text-[#244536] rounded-md font-mono">
-                                {h}
-                              </span>
-                            ))}
-                          </div>
+                          {att.metadata?.tags && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {att.metadata.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="px-2 py-0.5 bg-[#F7F5EF] text-[#244536] rounded text-[10px] font-mono"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="px-5 py-3.5 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between gap-3">
-                        <div className="text-[11px] text-[#292D2A]/50 font-mono">
-                          {destination.reviews.toLocaleString()} reviews
-                        </div>
-                        <Button
-                          onClick={() => router.push(`/home?destination=${encodeURIComponent(destination.name)}`)}
-                          className="bg-[#244536] text-white hover:bg-[#1B3529] rounded-xl px-4 py-1.5 text-xs font-medium gap-1.5 shadow-xs"
+                      <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailEntity(att)}
+                          className="text-xs font-semibold text-[#244536] hover:underline"
                         >
-                          <span>Plan Route</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </Button>
+                          View Details &amp; Pricing &rarr;
+                        </button>
                       </div>
                     </motion.div>
                   );
                 })}
               </div>
-            )}
-          </div>
-        </section>
-      ) : (
-        /* ------------------------------------------------------------------------ */
-        /* PRIMARY EXPLORE CATALOGUE: NESTED CONTINENT CARDS HIERARCHY */
-        /* ------------------------------------------------------------------------ */
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-[#C78363]" />
-              <h2 className="font-serif text-2xl font-bold text-[#244536]">
-                Global Geographic Catalogue
-              </h2>
-            </div>
-            <span className="text-xs font-mono text-[#5F6761]">
-              {stats.continentsCount} Continents · {stats.countriesCount} Countries · {stats.destinationsCount} Verified Places
-            </span>
-          </div>
+            </section>
+          )}
 
-          {/* Accordion / Nested Stack of Continent Cards */}
-          <div className="space-y-6">
-            {continents.map((continent) => {
-              const isExpanded = expandedContinentId === continent.id;
-              const countriesInContinent = ExploreService.getCountries(continent.id);
-              const destinationsInContinent = ExploreService.getDestinations({ continentId: continent.id });
+          {/* Real Local Businesses & Facilities (Hotels, Dining, Fuel, Washrooms) */}
+          {filteredBusinesses.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-[#244536]/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-indigo-600" />
+                  <h2 className="font-serif text-2xl font-bold text-[#244536]">
+                    Real Local Businesses &amp; Verified Facilities
+                  </h2>
+                </div>
+                <span className="text-xs font-mono text-[#5F6761]">
+                  {filteredBusinesses.length} Verified Facilities
+                </span>
+              </div>
 
-              return (
-                <div
-                  key={continent.id}
-                  className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden shadow-xs ${
-                    isExpanded 
-                      ? 'border-[#244536]/40 shadow-md ring-1 ring-[#244536]/10' 
-                      : 'border-[#244536]/15 hover:border-[#244536]/30'
-                  }`}
-                >
-                  {/* CONTINENT CARD BANNER / HEADER */}
-                  <div
-                    onClick={() => handleContinentToggle(continent.id)}
-                    className="cursor-pointer relative overflow-hidden"
-                  >
-                    <div className="relative h-44 sm:h-52 w-full overflow-hidden bg-[#244536]">
-                      <img
-                        src={continent.heroImage}
-                        alt={continent.name}
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
-                        }}
-                        className={`w-full h-full object-cover transition-transform duration-700 ${
-                          isExpanded ? 'scale-105 opacity-40' : 'opacity-50 hover:scale-102'
-                        }`}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#244536] via-[#244536]/60 to-transparent" />
-
-                      {/* Content Overlay */}
-                      <div className="absolute inset-0 p-5 sm:p-7 flex flex-col justify-between text-white">
-                        <div className="flex items-start justify-between">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[11px] font-mono tracking-wider">
-                            <span>CODE: {continent.code}</span>
-                            <span>•</span>
-                            <span>{countriesInContinent.length} {countriesInContinent.length === 1 ? 'Country' : 'Countries'}</span>
-                          </div>
-
-                          {/* Expand/Collapse Toggle Button */}
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            aria-expanded={isExpanded}
-                            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${continent.name}`}
-                            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white text-[#244536] text-xs font-semibold shadow-sm hover:bg-[#FAF8F5] transition"
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredBusinesses.map((biz) => {
+                  const isSaved = savedNames.includes(biz.canonicalName);
+                  return (
+                    <motion.div
+                      key={biz.id}
+                      className="group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="relative h-44 w-full overflow-hidden bg-[#E7ECE5]">
+                          <img
+                            src={biz.heroImage || FALLBACK_IMAGE}
+                            alt={biz.canonicalName}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleSave(biz.canonicalName)}
+                            className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-md rounded-xl text-[#292D2A]/60 hover:text-[#C78363] hover:bg-white shadow-xs transition"
                           >
-                            <span>{isExpanded ? 'Collapse Countries' : 'Explore Countries'}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                            <Heart className={`w-4 h-4 ${isSaved ? 'fill-[#C78363] text-[#C78363]' : ''}`} />
+                          </button>
+                          <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl text-xs font-mono font-bold text-[#244536] shadow-xs">
+                            {biz.typeLabel || biz.category}
                           </div>
+                          {biz.metadata?.hygieneScore && (
+                            <div className="absolute bottom-3 left-3 px-2 py-0.5 bg-emerald-800 text-white rounded-md text-[10px] font-mono flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-emerald-300" />
+                              <span>{biz.metadata.hygieneScore}% Verified Clean</span>
+                            </div>
+                          )}
                         </div>
 
-                        <div>
-                          <h3 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-                            <span>{continent.name}</span>
+                        <div className="p-4 space-y-2">
+                          <h3 className="font-serif text-base font-bold text-[#244536]">
+                            {biz.canonicalName}
                           </h3>
-                          <p className="text-xs sm:text-sm text-white/85 line-clamp-1 sm:line-clamp-2 mt-1 max-w-2xl leading-relaxed">
-                            {continent.description}
+                          <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
+                            {biz.description}
                           </p>
-                          <div className="text-[11px] font-mono text-[#C78363] mt-2 flex items-center gap-2">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>{destinationsInContinent.length} Curated Destination Corridors &amp; Circuits</span>
-                          </div>
+
+                          {biz.metadata?.address && (
+                            <p className="text-[11px] text-[#5F6761] truncate">
+                              📍 {biz.metadata.address}
+                            </p>
+                          )}
+
+                          {biz.metadata?.fuelTypes && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {biz.metadata.fuelTypes.map((fuel) => (
+                                <span
+                                  key={fuel}
+                                  className="px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded text-[10px] font-mono"
+                                >
+                                  ⛽ {fuel}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailEntity(biz)}
+                          className="text-xs font-semibold text-[#244536] hover:underline"
+                        >
+                          View Facility Data &rarr;
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------------ */}
+      {/* 4. ENTITY DETAIL MODAL */}
+      {/* ------------------------------------------------------------------------ */}
+      <AnimatePresence>
+        {selectedDetailEntity && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#244536]/15 overflow-hidden max-h-[90vh] flex flex-col"
+            >
+              <div className="relative h-64 w-full bg-[#E7ECE5] shrink-0">
+                <img
+                  src={selectedDetailEntity.heroImage || FALLBACK_IMAGE}
+                  alt={selectedDetailEntity.canonicalName}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedDetailEntity(null)}
+                  className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="absolute bottom-4 left-4 px-3 py-1 bg-white/95 backdrop-blur-md rounded-xl text-xs font-mono font-bold text-[#244536]">
+                  {selectedDetailEntity.typeLabel || selectedDetailEntity.entityType}
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-serif text-2xl font-bold text-[#244536]">
+                      {selectedDetailEntity.canonicalName}
+                    </h3>
+                    {selectedDetailEntity.alternateNames.length > 0 && (
+                      <p className="text-xs text-[#5F6761] font-mono mt-0.5">
+                        Also known as: {selectedDetailEntity.alternateNames.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  {selectedDetailEntity.metadata?.hygieneScore && (
+                    <div className="px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono shrink-0">
+                      Hygiene: {selectedDetailEntity.metadata.hygieneScore}%
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-sm text-[#292D2A] leading-relaxed">
+                  {selectedDetailEntity.description}
+                </p>
+
+                {/* GPS Coordinates & Administrative info */}
+                <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#244536]/10 grid grid-cols-2 gap-2 text-xs font-mono text-[#5F6761]">
+                  <div>
+                    <span className="text-[#244536] font-semibold">GPS Coordinates:</span>{' '}
+                    {selectedDetailEntity.coordinates.lat.toFixed(4)}° N,{' '}
+                    {selectedDetailEntity.coordinates.lng.toFixed(4)}° E
+                  </div>
+                  <div>
+                    <span className="text-[#244536] font-semibold">Country Code:</span>{' '}
+                    {selectedDetailEntity.countryCode}
+                  </div>
+                  <div>
+                    <span className="text-[#244536] font-semibold">Data Source:</span>{' '}
+                    {selectedDetailEntity.sourceType}
+                  </div>
+                  <div>
+                    <span className="text-[#244536] font-semibold">Status:</span>{' '}
+                    {selectedDetailEntity.isVerified ? '✅ Verified Record' : 'Community'}
+                  </div>
+                </div>
+
+                {selectedDetailEntity.metadata?.address && (
+                  <div className="text-xs text-[#5F6761]">
+                    <strong>Physical Address:</strong> {selectedDetailEntity.metadata.address}
+                  </div>
+                )}
+
+                {selectedDetailEntity.metadata?.fuelTypes && (
+                  <div>
+                    <span className="text-xs font-semibold text-[#244536]">Dispensed Fuels:</span>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {selectedDetailEntity.metadata.fuelTypes.map((fuel) => (
+                        <span
+                          key={fuel}
+                          className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg text-xs font-mono font-medium"
+                        >
+                          ⛽ {fuel}
+                        </span>
+                      ))}
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {/* ------------------------------------------------------------------------ */}
-                  {/* NESTED CONTENT: COUNTRIES DIRECTLY INSIDE CONTINENT CARD */}
-                  {/* ------------------------------------------------------------------------ */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.35, ease: 'easeInOut' }}
-                        className="bg-[#FAF8F5] border-t border-[#244536]/15 p-5 sm:p-7 space-y-5"
-                      >
-                        <div className="flex items-center justify-between border-b border-[#244536]/10 pb-3">
-                          <div className="flex items-center gap-2">
-                            <Compass className="w-4 h-4 text-[#C78363]" />
-                            <h4 className="font-serif text-lg font-bold text-[#244536]">
-                              Countries &amp; Regions in {continent.name}
-                            </h4>
-                          </div>
-                          <span className="text-xs font-mono text-[#5F6761]">
-                            {countriesInContinent.length} Represented
-                          </span>
-                        </div>
-
-                        {/* Responsive Grid of Country Cards Nested Inside Continent */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {countriesInContinent.map((country) => {
-                            const countryDestinationsCount = ExploreService.getDestinations({ countryId: country.id }).length;
-
-                            return (
-                              <motion.div
-                                key={country.id}
-                                whileHover={{ y: -3 }}
-                                className="group bg-white rounded-2xl border border-[#244536]/15 hover:border-[#244536]/40 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
-                              >
-                                <div>
-                                  {/* Country Card Photo */}
-                                  <div className="relative h-40 w-full overflow-hidden bg-[#E7ECE5]">
-                                    <img
-                                      src={country.heroImage}
-                                      alt={country.name}
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
-                                      }}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                                    />
-                                    {/* Country Flag & Name Badge */}
-                                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 bg-white/95 backdrop-blur-md rounded-xl text-xs font-medium text-[#244536] shadow-xs flex items-center gap-1.5">
-                                      <span className="text-base">{country.flag}</span>
-                                      <span className="font-serif font-bold">{country.name}</span>
-                                      <span className="text-[10px] font-mono text-[#5F6761]">[{country.isoCode}]</span>
-                                    </div>
-
-                                    {/* Subdivisions count badge */}
-                                    <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 bg-[#244536]/90 text-white rounded-md text-[10px] font-mono">
-                                      {country.subdivisions.length} {country.subdivisionLabel}
-                                    </div>
-                                  </div>
-
-                                  {/* Country Card Info */}
-                                  <div className="p-4 space-y-2">
-                                    <h5 className="font-serif text-sm font-bold text-[#244536] group-hover:text-[#C78363] transition-colors line-clamp-1">
-                                      {country.tagline}
-                                    </h5>
-                                    <p className="text-xs text-[#5F6761] line-clamp-2 leading-relaxed">
-                                      {country.description}
-                                    </p>
-                                    <div className="text-[11px] font-mono text-[#5F6761] pt-1">
-                                      Currency: <strong>{country.currency}</strong> · Capital: <strong>{country.capital}</strong>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Country Card Footer Action */}
-                                <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#244536]/8 flex items-center justify-between gap-2">
-                                  <span className="text-[11px] font-mono text-[#5F6761]">
-                                    {countryDestinationsCount} places
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectCountry(country)}
-                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#244536] group-hover:text-[#C78363] transition-colors"
-                                  >
-                                    <span>Explore {country.name}</span>
-                                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                                  </button>
-                                </div>
-                              </motion.div>
-                            );
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
+              <div className="p-4 bg-[#FAF8F5] border-t border-[#244536]/10 flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedDetailEntity(null)}
+                  className="rounded-xl"
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    handleEntityDrillDown(selectedDetailEntity);
+                    setSelectedDetailEntity(null);
+                  }}
+                  className="bg-[#244536] hover:bg-[#1B3529] text-white rounded-xl"
+                >
+                  Explore In Hierarchy &rarr;
+                </Button>
+              </div>
+            </motion.div>
           </div>
-        </section>
-      )}
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F7F5EF] p-8 text-center text-xs font-mono text-[#5F6761]">Loading WanderCanvas Explore...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F7F5EF] p-8 text-center text-xs font-mono text-[#5F6761]">
+          Loading WanderCanvas Hierarchical Explore...
+        </div>
+      }
+    >
       <ExploreContent />
     </Suspense>
   );

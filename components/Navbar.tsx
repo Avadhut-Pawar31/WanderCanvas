@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { ExploreService } from '@/services/exploreService';
+import { GlobalHierarchicalSearch } from '@/components/search/GlobalHierarchicalSearch';
 
 interface NotificationItem {
   id: string;
@@ -206,137 +207,11 @@ export function Navbar() {
 
             {/* Right Section - Search & User Actions */}
             <div className="flex items-center gap-3 ml-auto">
-              {/* Search Bar with Live Suggestions Dropdown - Desktop */}
-              <div ref={searchContainerRef} className="relative hidden md:block">
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSearchSubmit(searchQuery);
-                  }}
-                  className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-[#244536]/15 rounded-xl shadow-xs hover:border-[#244536]/30 focus-within:border-[#244536] transition-all"
-                >
-                  <button type="submit" aria-label="Search" className="text-[#292D2A]/40 hover:text-[#244536] transition-colors">
-                    <Search className="w-4 h-4 flex-shrink-0" />
-                  </button>
-                  <input
-                    type="text"
-                    placeholder="Search Eiffel, Taj Mahal, 7 Wonders..."
-                    value={searchQuery}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-transparent border-none outline-none text-xs text-[#292D2A] placeholder-[#292D2A]/40 w-56 font-sans"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="text-[#292D2A]/40 hover:text-[#292D2A]"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </form>
-
-                {/* Live Search Popup */}
-                <AnimatePresence>
-                  {isSearchFocused && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-0 right-0 mt-2 w-96 bg-white border border-[#244536]/15 rounded-2xl shadow-xl overflow-hidden z-50 text-xs"
-                    >
-                      {searchQuery.trim() ? (
-                        <div>
-                          <div className="p-3 bg-[#FAF8F5] border-b border-[#244536]/10 flex items-center justify-between text-[11px] font-mono text-[#5F6761]">
-                            <span>MATCHING DESTINATIONS</span>
-                            <span>{searchResults.length} found</span>
-                          </div>
-
-                          {searchResults.length === 0 ? (
-                            <div className="p-4 text-center text-[#5F6761] space-y-2">
-                              <p>No exact match found for &ldquo;{searchQuery}&rdquo;</p>
-                              <button
-                                type="button"
-                                onClick={() => handleSearchSubmit(searchQuery)}
-                                className="text-xs text-[#244536] font-semibold underline"
-                              >
-                                Search in Global Explore Catalogue &rarr;
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="divide-y divide-[#244536]/8 max-h-80 overflow-y-auto">
-                              {searchResults.map((dest) => {
-                                const country = ExploreService.getCountryById(dest.countryId);
-                                return (
-                                  <button
-                                    key={dest.id}
-                                    type="button"
-                                    onClick={() => handleSearchSubmit(dest.name)}
-                                    className="w-full text-left p-3 hover:bg-[#FAF8F5] transition flex items-center gap-3"
-                                  >
-                                    <img
-                                      src={dest.image}
-                                      alt={dest.name}
-                                      className="w-11 h-11 rounded-lg object-cover flex-shrink-0"
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).src =
-                                          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=85';
-                                      }}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-serif font-bold text-[#244536] text-xs truncate">
-                                        {dest.name}
-                                      </p>
-                                      <p className="text-[11px] text-[#5F6761] truncate">
-                                        {country?.flag} {country?.name} • {dest.categoryLabel || dest.category}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-[10px] font-bold text-[#244536] bg-[#244536]/10 px-1.5 py-0.5 rounded-md flex-shrink-0">
-                                      <ShieldCheck className="w-3 h-3 text-[#244536]" />
-                                      <span>{dest.hygieneScore}</span>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          <div className="p-2.5 bg-[#FAF8F5] border-t border-[#244536]/10 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleSearchSubmit(searchQuery)}
-                              className="text-xs font-semibold text-[#244536] hover:underline"
-                            >
-                              View all results in Explore Catalogue &rarr;
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-4 space-y-3">
-                          <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#244536]">
-                            <Sparkles className="w-3.5 h-3.5 text-[#C78363]" />
-                            <span>POPULAR &amp; 7 WONDERS QUICK DISCOVERY</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {popularSuggestions.map((term) => (
-                              <button
-                                key={term}
-                                type="button"
-                                onClick={() => handleSearchSubmit(term)}
-                                className="px-2.5 py-1 bg-[#F7F5EF] hover:bg-[#244536] hover:text-white rounded-lg text-xs font-medium text-[#244536] transition"
-                              >
-                                {term}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              {/* Global Deep Hierarchical Location Search - Desktop */}
+              <GlobalHierarchicalSearch
+                className="hidden md:block w-72"
+                placeholder="Search places, towns, waterfalls, petrol..."
+              />
 
               {/* Notifications Dropdown */}
               <div ref={notificationsRef} className="relative">
@@ -512,29 +387,11 @@ export function Navbar() {
               exit={{ opacity: 0, height: 0 }}
               className="lg:hidden border-t border-[#244536]/10 bg-[#F7F5EF] px-4 py-4 space-y-3 shadow-lg"
             >
-              {/* Mobile Search Form */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSearchSubmit(searchQuery);
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-[#244536]/15 rounded-xl shadow-xs"
-              >
-                <Search className="w-4 h-4 text-[#292D2A]/40 flex-shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search Eiffel, Taj Mahal, 7 Wonders..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent border-none outline-none text-xs text-[#292D2A] placeholder-[#292D2A]/40 w-full font-sans"
-                />
-                <button
-                  type="submit"
-                  className="px-2.5 py-1 bg-[#244536] text-white rounded-lg text-xs font-semibold"
-                >
-                  Go
-                </button>
-              </form>
+              {/* Mobile Global Hierarchical Search */}
+              <GlobalHierarchicalSearch
+                className="w-full"
+                placeholder="Search places, towns, waterfalls, petrol..."
+              />
 
               {/* Mobile Nav Links */}
               <div className="space-y-1">
