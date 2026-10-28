@@ -146,16 +146,26 @@ export default function TripWorkspacePage() {
     );
   }
 
-  // Determine active traveler member
+  // Determine active traveler member with unique per-browser session ID
+  const [guestId] = useState(() => {
+    if (typeof window === 'undefined') return 'guest-server';
+    let sid = sessionStorage.getItem('wandercanvas_guest_id');
+    if (!sid) {
+      sid = 'guest-' + Math.random().toString(36).substring(2, 9);
+      sessionStorage.setItem('wandercanvas_guest_id', sid);
+    }
+    return sid;
+  });
+
   const activeUser = user
     ? {
-        id: user.id || 'user-me',
+        id: user.id || guestId,
         name: user.name || 'Traveler',
         email: user.email || 'traveler@wandercanvas.com',
         avatar: user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80',
       }
     : {
-        id: 'traveler-guest',
+        id: guestId,
         name: 'You (Explorer)',
         email: 'explorer@wandercanvas.com',
         avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80',

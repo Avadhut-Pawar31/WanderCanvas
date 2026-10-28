@@ -84,9 +84,6 @@ export function TripChatPanel({
       return [...prev, sent];
     });
     setInputText('');
-
-    // Trigger WanderCanvas Concierge response for interactive assistant replies
-    ChatService.triggerConciergeAutoReply(tripId, trimmed, currentUserName);
   };
 
   return (
@@ -116,7 +113,8 @@ export function TripChatPanel({
           </div>
         ) : (
           messages.map((msg) => {
-            const isMe = msg.senderId === currentUserId;
+            const isMe = (msg.senderId === currentUserId && (!msg.senderName || msg.senderName === currentUserName)) ||
+                         (Boolean(msg.senderName) && Boolean(currentUserName) && msg.senderName === currentUserName);
             const isConcierge = msg.senderName === 'WanderCanvas Concierge' || msg.senderId === 'concierge';
             const isSystemAlert = msg.type === 'itinerary_update' || msg.type === 'vote_alert';
 
