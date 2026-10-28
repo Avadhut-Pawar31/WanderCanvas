@@ -42,7 +42,8 @@ import {
   GeoEntity, 
   GeoEntityType, 
   GeoPlaceCategory, 
-  HierarchicalBrowseState 
+  HierarchicalBrowseState,
+  HierarchicalSearchResult
 } from '@/types/hierarchicalGeo';
 import { ContinentId, CountryCategory, Country } from '@/types/geography';
 
@@ -101,10 +102,42 @@ function ExploreContent() {
     });
   }, [browseState.childBusinesses, selectedCategoryFilter]);
 
-  // Direct search results if user searched for specific string
-  const directSearchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    return HierarchicalGeoService.search(searchQuery.trim(), { limit: 18 });
+  // Direct search results: instant catalogue matches + debounced global geocoded discovery
+  const [directSearchResults, setDirectSearchResults] = useState<HierarchicalSearchResult[]>([]);
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setDirectSearchResults([]);
+      setIsSearchingLive(false);
+      return;
+    }
+
+    const localMatches = HierarchicalGeoService.search(q, { limit: 18 });
+    setDirectSearchResults(localMatches);
+
+    if (q.length >= 2) {
+      setIsSearchingLive(true);
+      const timer = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/places/hierarchical-search?query=${encodeURIComponent(q)}&limit=18`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.results)) {
+              setDirectSearchResults(data.results);
+            }
+          }
+        } catch (err) {
+          console.warn('Explore live search error:', err);
+        } finally {
+          setIsSearchingLive(false);
+        }
+      }, 250);
+      return () => clearTimeout(timer);
+    } else {
+      setIsSearchingLive(false);
+    }
   }, [searchQuery]);
 
   const toggleSave = (name: string) => {

@@ -110,6 +110,21 @@ export class HierarchicalGeoService {
   }
 
   /**
+   * Dynamically register an entity discovered via live global geocoding
+   */
+  static registerDynamicEntity(entity: GeoEntity) {
+    this.ensureInitialized();
+    if (!this.entitiesById.has(entity.id)) {
+      this.entitiesById.set(entity.id, entity);
+      const parentKey = entity.parentId || '__ROOT__';
+      if (!this.childrenByParentId.has(parentKey)) {
+        this.childrenByParentId.set(parentKey, []);
+      }
+      this.childrenByParentId.get(parentKey)!.push(entity);
+    }
+  }
+
+  /**
    * Fetch single entity by ID.
    */
   static getEntityById(id: string): GeoEntity | null {

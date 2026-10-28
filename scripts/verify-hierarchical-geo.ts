@@ -293,6 +293,49 @@ async function runTestSuite() {
   const natureCostHasINR = biharProfile.categoryDetails.nature.estimatedCost.includes('₹') || biharProfile.categoryDetails.nature.estimatedCost.includes('Free');
   assert(natureCostHasINR, `Nature cost uses authentic Indian currency (₹ / Free access), measured: ${biharProfile.categoryDetails.nature.estimatedCost}`);
 
+  // --------------------------------------------------------------------------
+  console.log(`\n📌 Test Group 12: Bihar Regional Districts, Local Neighborhoods & Universal Coverage`);
+  // --------------------------------------------------------------------------
+  // 1. Muzaffarpur search & breadcrumbs
+  const muzaffarpurSearch = HierarchicalGeoService.search('Muzaffarpur');
+  assert(muzaffarpurSearch.some(r => r.entity.id === 'loc-in-br-muzaffarpur'), "Direct search for 'Muzaffarpur' returns Litchi commercial capital");
+  
+  const garibnathCrumbs = HierarchicalGeoService.getBreadcrumbs('poi-in-br-garibnath-temple');
+  const garibnathPath = garibnathCrumbs.map(c => c.name).join(' → ');
+  assert(
+    garibnathPath === 'Asia → India → Bihar → Muzaffarpur District → Muzaffarpur → Baba Garibnath Dham',
+    'Garibnath Temple dynamic breadcrumbs: Country → State → District → City → Temple',
+    `Got '${garibnathPath}'`
+  );
+
+  // 2. Bhagalpur & Vikramshila
+  const vikramshilaSearch = HierarchicalGeoService.search('Vikramshila');
+  assert(vikramshilaSearch.length > 0 && vikramshilaSearch[0].entity.id === 'poi-in-br-vikramshila', "Direct search for 'Vikramshila' returns 8th-century university ruins");
+
+  // 3. Darbhanga & Raj Darbhanga Palace
+  const darbhangaSearch = HierarchicalGeoService.search('Darbhanga');
+  assert(darbhangaSearch.some(r => r.entity.id === 'loc-in-br-darbhanga'), "Direct search for 'Darbhanga' returns Mithila cultural capital");
+
+  // 4. Vaishali & Ashoka Pillar
+  const vaishaliCrumbs = HierarchicalGeoService.getBreadcrumbs('poi-in-br-vaishali-ashoka-pillar');
+  const vaishaliPath = vaishaliCrumbs.map(c => c.name).join(' → ');
+  assert(
+    vaishaliPath === 'Asia → India → Bihar → Vaishali District → Vaishali → Vaishali Ashoka Pillar & Relic Stupa',
+    'Vaishali Ashoka Pillar dynamic breadcrumbs in ancient democratic republic',
+    `Got '${vaishaliPath}'`
+  );
+
+  // 5. Sasaram Sher Shah Suri tomb
+  const sasaramSearch = HierarchicalGeoService.search('Sasaram');
+  assert(sasaramSearch.some(r => r.entity.id === 'loc-in-br-sasaram'), "Direct search for 'Sasaram' returns Imperial mausoleum city");
+
+  // 6. Granular Patna neighborhoods
+  const boringRoadSearch = HierarchicalGeoService.search('Boring Road');
+  assert(boringRoadSearch.some(r => r.entity.id === 'loc-in-br-patna-boring-road'), "Granular search for 'Boring Road' returns central commercial precinct");
+
+  const kankarbaghSearch = HierarchicalGeoService.search('Kankarbagh');
+  assert(kankarbaghSearch.some(r => r.entity.id === 'loc-in-br-patna-kankarbagh'), "Granular search for 'Kankarbagh' returns expansive residential suburb");
+
   // Summary
   console.log(`\n==============================================================================`);
   console.log(`TEST SUITE RESULTS: ${passedTests} / ${totalTests} TESTS PASSED`);

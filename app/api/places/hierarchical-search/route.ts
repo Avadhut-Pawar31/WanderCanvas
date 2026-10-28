@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HierarchicalGeoService } from '@/services/hierarchicalGeoService';
+import { GlobalGeocodingService } from '@/services/globalGeocodingService';
 import { GeoEntityType, GeoPlaceCategory } from '@/types/hierarchicalGeo';
 
 export const runtime = 'nodejs';
@@ -52,11 +53,20 @@ export async function GET(request: NextRequest) {
 
     // 3. Search / Autocomplete query
     if (query !== null) {
-      const results = HierarchicalGeoService.search(query, {
+      let results = HierarchicalGeoService.search(query, {
         entityType: entityType || undefined,
         category: category || undefined,
         limit
       });
+
+      // Expand with universal global geocoding for any local village, town or neighborhood (TripCircle parity)
+      if (results.length < limit) {
+        try {
+          results = await GlobalGeocodingService.searchLocations(query, { limit });
+        } catch (e) {
+          console.warn('Global geocoding fallback warning:', e);
+        }
+      }
 
       return NextResponse.json({
         success: true,

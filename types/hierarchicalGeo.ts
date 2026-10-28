@@ -94,7 +94,7 @@ export interface GeoEntity {
     tags?: string[];
   };
 
-  sourceType: 'verified_catalogue' | 'geo_names' | 'natural_earth' | 'official_tourism' | 'google_places';
+  sourceType: 'verified_catalogue' | 'geo_names' | 'natural_earth' | 'official_tourism' | 'google_places' | 'osm_derived';
   isVerified: boolean;
   createdAt?: string;
   updatedAt?: string;
