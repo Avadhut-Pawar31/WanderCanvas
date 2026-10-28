@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, DollarSign, Calendar, Plus, Check } from 'lucide-react';
+import { X, Clock, Calendar, Plus, Check, Coins } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CategoryDetails, SavedActivity, TravelPriority } from '@/types';
 import { Button } from './ui/button';
@@ -41,8 +41,27 @@ export function CategoryDetailModal({
   }, [isOpen, onClose]);
 
   const parseCost = (costString: string): number => {
-    const match = costString.match(/\$(\d+)/);
+    const match = costString.match(/(?:[\$₹€£¥]|INR\s*)(\d+)/i) || costString.match(/(\d+)/);
     return match ? parseInt(match[1]) : 0;
+  };
+
+  const renderCurrencyIcon = (costText: string, sizeClass = "w-4 h-4") => {
+    if (costText.includes('₹') || costText.includes('INR')) {
+      return <span className={`${sizeClass} font-bold text-[#C78363] inline-flex items-center justify-center text-xs leading-none`}>₹</span>;
+    }
+    if (costText.includes('€') || costText.includes('EUR')) {
+      return <span className={`${sizeClass} font-bold text-[#C78363] inline-flex items-center justify-center text-xs leading-none`}>€</span>;
+    }
+    if (costText.includes('¥') || costText.includes('JPY')) {
+      return <span className={`${sizeClass} font-bold text-[#C78363] inline-flex items-center justify-center text-xs leading-none`}>¥</span>;
+    }
+    if (costText.includes('£') || costText.includes('GBP')) {
+      return <span className={`${sizeClass} font-bold text-[#C78363] inline-flex items-center justify-center text-xs leading-none`}>£</span>;
+    }
+    if (costText.includes('$') || costText.includes('USD')) {
+      return <span className={`${sizeClass} font-bold text-[#C78363] inline-flex items-center justify-center text-xs leading-none`}>$</span>;
+    }
+    return <Coins className={`${sizeClass} text-[#C78363]`} />;
   };
 
   const handleSavePlace = (place: typeof category.topPlaces[0]) => {
@@ -153,7 +172,7 @@ export function CategoryDetailModal({
               {/* Quick Info Strip */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="flex items-start gap-3 p-3.5 bg-[#F7F5EF] rounded-2xl border border-[#244536]/10">
-                  <DollarSign className="w-4 h-4 text-[#C78363] mt-0.5" />
+                  <div className="mt-0.5">{renderCurrencyIcon(category.estimatedCost, 'w-4 h-4')}</div>
                   <div>
                     <p className="text-[11px] font-mono uppercase tracking-wider text-[#292D2A]/50">Est. Cost</p>
                     <p className="text-sm font-semibold text-[#244536]">{category.estimatedCost}</p>
@@ -223,8 +242,8 @@ export function CategoryDetailModal({
                             </div>
                             <p className="text-xs text-[#292D2A]/70 mb-2 leading-relaxed">{place.description}</p>
                             <div className="flex flex-wrap gap-3 text-xs font-mono text-[#292D2A]/60">
-                              <div className="flex items-center gap-1">
-                                <DollarSign className="w-3.5 h-3.5 text-[#C78363]" />
+                              <div className="flex items-center gap-1.5">
+                                {renderCurrencyIcon(place.estimatedCost, 'w-3.5 h-3.5')}
                                 <span>{place.estimatedCost}</span>
                               </div>
                               <div className="flex items-center gap-1">

@@ -8,6 +8,7 @@ import {
 } from '@/types';
 import { generateId } from '@/lib/utils';
 import { TravelKnowledgeService } from '@/services/travelKnowledgeService';
+import { HierarchicalGeoService } from '@/services/hierarchicalGeoService';
 
 
 export interface DestinationKnowledgeProfile {
@@ -953,7 +954,7 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
   // 0. Primary High-Precision Engine: Check Verified Global Travel Knowledge Base
   const verified = TravelKnowledgeService.resolveProfile(q);
   if (verified) {
-    const isMountainOrInland = /mahabaleshwar|spiti|alps|zermatt|himalaya|agra|delhi/i.test(verified.canonicalName);
+    const isMountainOrInland = /mahabaleshwar|spiti|alps|zermatt|himalaya|agra|delhi|bihar|patna|gaya|rajgir|nalanda|bodh gaya/i.test(verified.canonicalName);
 
     const rawFoods = (verified.foodExperiences && verified.foodExperiences.length > 0)
       ? verified.foodExperiences
@@ -1061,7 +1062,7 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
           estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
           duration: a.recommendedDuration,
         })),
-        estimatedCost: TravelKnowledgeService.formatPrice(20, verified.defaultCurrency),
+        estimatedCost: `Free Access - ${TravelKnowledgeService.formatPrice(150, verified.defaultCurrency)}`,
         bestTime: verified.bestSeason,
         recommendedDuration: '2-3 hours per site',
         tags: rawAttractions[0]?.tags || ['Scenic Views', 'Nature Trails'],
@@ -1077,7 +1078,7 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
           estimatedCost: `${TravelKnowledgeService.formatPrice(f.priceRange.min, f.priceRange.currency)} - ${TravelKnowledgeService.formatPrice(f.priceRange.max, f.priceRange.currency)}`,
           duration: '1-2 hours',
         })),
-        estimatedCost: `${TravelKnowledgeService.formatPrice(100, verified.defaultCurrency)} - ${TravelKnowledgeService.formatPrice(300, verified.defaultCurrency)}`,
+        estimatedCost: `${TravelKnowledgeService.formatPrice(100, verified.defaultCurrency)} - ${TravelKnowledgeService.formatPrice(350, verified.defaultCurrency)}`,
         bestTime: 'Lunch or Dinner',
         recommendedDuration: '1.5 hours',
         tags: ['Local Cuisine', 'Authentic Terroir', 'Fresh Produce'],
@@ -1093,7 +1094,7 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
           estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
           duration: a.recommendedDuration,
         })),
-        estimatedCost: TravelKnowledgeService.formatPrice(50, verified.defaultCurrency),
+        estimatedCost: `Free Access - ${TravelKnowledgeService.formatPrice(100, verified.defaultCurrency)}`,
         bestTime: 'Morning or Golden Hour',
         recommendedDuration: '2 hours',
         tags: ['Historic Ramparts', 'Architecture', 'Heritage'],
@@ -1109,7 +1110,7 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
           estimatedCost: TravelKnowledgeService.formatPrice(a.admission.amount, a.admission.currency, a.admission.status),
           duration: a.recommendedDuration,
         })),
-        estimatedCost: 'Free Access - $10',
+        estimatedCost: `Free Access - ${TravelKnowledgeService.formatPrice(100, verified.defaultCurrency)}`,
         bestTime: 'Morning (8:00 AM - 11:00 AM)',
         recommendedDuration: '1.5 hours',
         tags: ['Living Traditions', 'Community Heritage', 'Culture'],
@@ -1224,24 +1225,176 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
     return found;
   }
 
-  // 2. Intelligent Geographic & Cultural Adaptation if not an exact match
-  // Derive authentic names based on query context instead of generic placeholders
-  const isIndia = /india|delhi|mumbai|kerala|rajasthan|goa|jaipur|udaipur|manali|rishikesh|coorg|karnataka|himalaya/i.test(q);
-  const isEurope = /europe|italy|france|spain|germany|swiss|greece|paris|rome|barcelona|london/i.test(q);
-  const isAsia = /japan|tokyo|kyoto|thai|bangkok|indonesia|bali|vietnam|singapore/i.test(q);
-
+  // 2. Intelligent Geographic & Cultural Adaptation grounded in Hierarchical Geography
   const cleanName = destinationQuery.trim();
+  
+  // Search for the closest geographic entity in our verified hierarchical catalogue
+  const geoSearchResults = HierarchicalGeoService.search(cleanName);
+  const geoAnchor = geoSearchResults[0]?.entity;
+
+  const isIndia = geoAnchor?.countryCode === 'IN' ||
+    (geoAnchor?.hierarchyPath && geoAnchor.hierarchyPath.includes('country-in')) ||
+    /india|bihar|patna|gaya|bodh gaya|nalanda|rajgir|delhi|mumbai|kerala|rajasthan|goa|jaipur|udaipur|manali|rishikesh|coorg|karnataka|himalaya|maharashtra|bengal|kolkata|varanasi|gujarat|punjab|tamil|chennai|hyderabad|telangana|andhra|assam|kashmir|ladakh|satara|pune/i.test(q);
+  const isJapan = geoAnchor?.countryCode === 'JP' || /japan|tokyo|kyoto|osaka|hokkaido|fukuoka|okinawa/i.test(q);
+  const isEurope = geoAnchor?.countryCode === 'IT' || geoAnchor?.countryCode === 'FR' || /europe|italy|france|spain|germany|swiss|greece|paris|rome|barcelona|london/i.test(q);
+
+  const curr = isIndia ? '₹' : isJapan ? '¥' : isEurope ? '€' : '$';
+  const dailyBudget = isIndia ? 2500 : isJapan ? 18000 : isEurope ? 180 : 150;
+
+  // Pull child entities if this anchor has verified children
+  const childEntities = geoAnchor ? HierarchicalGeoService.getChildren(geoAnchor.id) : [];
+  const childAttractions = childEntities.filter(e => e.entityType === 'attraction');
+  const childFoodBusinesses = childEntities.filter(e => e.entityType === 'business' && (e.category === 'restaurant' || e.category === 'cafe'));
+
+  const baseAttractions: Attraction[] = childAttractions.length >= 2
+    ? childAttractions.slice(0, 6).map(ca => ({
+        id: ca.id,
+        name: ca.canonicalName,
+        description: ca.description,
+        duration: '2-3 hours',
+        category: ca.category ? ca.category.charAt(0).toUpperCase() + ca.category.slice(1) : 'Culture',
+        image: ca.heroImage,
+      }))
+    : isIndia
+    ? [
+        {
+          id: generateId(),
+          name: `${cleanName} Historic Heritage Sanctuary & Old Quarters`,
+          description: `Stroll through the centuries-old historic quarter of ${cleanName}, observing living regional customs and traditional artisan lanes.`,
+          duration: '2-3 hours',
+          category: 'Culture',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Riverside Ghats & Nature Promenade`,
+          description: `Tranquil waterside paths offering panoramic vistas over the natural landscape and river topography.`,
+          duration: '2 hours',
+          category: 'Nature',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Ancient Fortifications & Heritage Ramparts`,
+          description: `Historic stone citadel walls showcasing regional architectural craftsmanship and panoramic hilltop viewpoints.`,
+          duration: '2 hours',
+          category: 'Heritage',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Traditional Handloom & Artisan Craft Bazaar`,
+          description: `Bustling indigenous market where master craftspeople showcase generations-old regional textiles and metalwork.`,
+          duration: '2 hours',
+          category: 'Culture',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Botanical Garden & Lake Sanctuary`,
+          description: `Preserved civic botanical green space featuring indigenous trees, lotus pools, and shaded walking avenues.`,
+          duration: '1-2 hours',
+          category: 'Nature',
+        },
+      ]
+    : [
+        {
+          id: generateId(),
+          name: `${cleanName} Old Historic Center & Heritage Trail`,
+          description: `Stroll the historic core of ${cleanName}, observing regional architecture and vibrant neighborhood markets.`,
+          duration: '2-3 hours',
+          category: 'Culture',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Scenic Valley & Viewpoint`,
+          description: `Panoramic vantage point overlooking the natural topography and skyline of ${cleanName}.`,
+          duration: '2 hours',
+          category: 'Nature',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Regional Art & History Sanctuary`,
+          description: `Preserving the indigenous history, crafts, and centuries-old stories of ${cleanName}.`,
+          duration: '2 hours',
+          category: 'Culture',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Artisan Craft & Market Bazaar`,
+          description: `Meet local makers and craftspeople specializing in authentic regional products and seasonal produce.`,
+          duration: '2 hours',
+          category: 'Culture',
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Riverfront & Promenade Walkway`,
+          description: `Relaxing paved walkway along the scenic waterfront of ${cleanName} with artisan cafes.`,
+          duration: '1-2 hours',
+          category: 'Leisure',
+        },
+      ];
+
+  const baseFoods: FoodRecommendation[] = isIndia
+    ? [
+        {
+          id: generateId(),
+          name: `${cleanName} Authentic Regional Thali & Bread Specialty`,
+          description: `Wholesome traditional meal with slow-cooked seasonal lentils, roasted vegetables, and hot fresh country breads served with pure desi ghee.`,
+          significance: `A generational culinary staple in ${cleanName}, prepared according to time-honored Ayurvedic seasonal cooking wisdom.`,
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Famous Street Savory & Tangy Chutney`,
+          description: `Crispy, freshly fried regional snack served hot with stone-ground mint-coriander and tamarind dipping chutneys.`,
+          significance: `The vibrant pulse of daily market life across ${cleanName}, perfected by generational street vendors.`,
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Generational Sweet Delicacy & Spiced Chai`,
+          description: `Melt-in-mouth milk or jaggery-based regional confection infused with green cardamom and toasted nuts, paired with clay-cup ginger tea.`,
+          significance: `Centuries-old festive treat shared during celebrations and family hospitality.`,
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Clay-Pot Slow Cooked Special`,
+          description: `Tender pieces simmered gently inside sealed earthen pots over slow wood embers with whole regional spices and cold-pressed mustard oil.`,
+          significance: `Revered rustic technique that infuses food with unique earthy aroma and unmatched depth of flavor.`,
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Fresh Farmhouse Vegetarian Bowl`,
+          description: `Nutrient-rich combination of regional heirloom pulses, braised leafy greens, and fresh curd cheese.`,
+          significance: `Sustainable plant-forward culinary tradition deeply rooted in regional agriculture.`,
+        },
+      ]
+    : [
+        {
+          id: generateId(),
+          name: `${cleanName} Signature Regional Terroir Specialty`,
+          description: `Authentic regional recipe featuring locally farmed vegetables and slow-braised ingredients seasoned with local herbs.`,
+          significance: `A generational culinary staple in ${cleanName}, cooked during seasonal gatherings.`,
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Market Street Specialty`,
+          description: `Crispy, freshly prepared pan-fried street savory served hot with freshly ground dipping sauces.`,
+          significance: `The heartbeat of daily life in ${cleanName}, prepared fresh by generational street vendors.`,
+        },
+        {
+          id: generateId(),
+          name: `${cleanName} Artisan Pastry & Sweet Delicacy`,
+          description: `Layered flaky pastry sweetened with regional honey and toasted nuts, paired with spiced hot tea.`,
+          significance: `Centuries-old festive dessert celebrating seasonal harvests across the province.`,
+        },
+      ];
 
   return {
     id: cleanName.toLowerCase().replace(/\s+/g, '-'),
     matchKeywords: [q],
     destination: {
-      name: cleanName,
-      description: `Explore the authentic landscapes, architectural heritage, and celebrated local food culture of ${cleanName}.`,
-      heroImage: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=85',
+      name: geoAnchor ? geoAnchor.canonicalName : cleanName,
+      description: geoAnchor?.description || `Explore the authentic landscapes, architectural heritage, and celebrated local food culture of ${cleanName}.`,
+      heroImage: geoAnchor?.heroImage || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=85',
       bestSeason: isEurope ? 'May to October' : isIndia ? 'October to March' : 'Year-round',
       weather: 'Pleasant travel climate with seasonal variations',
-      dailyBudget: 150,
+      dailyBudget,
     },
     colorPalette: [
       { hex: '#244536', name: 'Pine Forest' },
@@ -1250,93 +1403,27 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
       { hex: '#2A9D8F', name: 'River Jade' },
       { hex: '#F7F5EF', name: 'Parchment Canvas' },
     ],
-    attractions: [
-      {
-        id: generateId(),
-        name: `${cleanName} Old Historic Center & Heritage Trail`,
-        description: `Stroll the historic core of ${cleanName}, observing regional architecture and vibrant neighborhood markets.`,
-        duration: '2-3 hours',
-        category: 'Culture',
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Scenic Valley & Viewpoint`,
-        description: `Panoramic vantage point overlooking the natural topography and skyline of ${cleanName}.`,
-        duration: '2 hours',
-        category: 'Nature',
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Regional Art & History Sanctuary`,
-        description: `Preserving the indigenous history, crafts, and centuries-old stories of ${cleanName}.`,
-        duration: '2 hours',
-        category: 'Culture',
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Artisan Craft & Market Bazaar`,
-        description: `Meet local makers and craftspeople specializing in authentic regional products and seasonal produce.`,
-        duration: '2 hours',
-        category: 'Culture',
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Riverfront & Promenade Walkway`,
-        description: `Relaxing paved walkway along the scenic waterfront of ${cleanName} with artisan cafes.`,
-        duration: '1-2 hours',
-        category: 'Leisure',
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Outdoor Nature & Ridge Trail`,
-        description: `Active trail passing through native flora, granite rock outcrops, and panoramic overlooks.`,
-        duration: '3 hours',
-        category: 'Adventure',
-      },
-    ],
-    foodRecommendations: [
-      {
-        id: generateId(),
-        name: `${cleanName} Signature Slow-Cooked Stew & Crusty Bread`,
-        description: `Authentic regional recipe featuring locally farmed vegetables and slow-braised meats seasoned with local herbs.`,
-        significance: `A generational culinary staple in ${cleanName}, cooked during seasonal gatherings and family feasts.`,
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Market Street Specialty`,
-        description: `Crispy, freshly prepared pan-fried street savory served hot with freshly ground tangy dipping sauces.`,
-        significance: `The heartbeat of daily life in ${cleanName}, prepared fresh by generational street vendors.`,
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Artisan Honeyed Pastry & Sweet Delicacy`,
-        description: `Layered flaky pastry sweetened with mountain honey and toasted nuts, paired with spiced hot tea.`,
-        significance: `Centuries-old festive dessert celebrating seasonal harvests across the province.`,
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Fresh Catch & Herb-Roasted Fillet`,
-        description: `Locally sourced fish or river trout pan-seared with cold-pressed oil, crushed garlic, and garden herbs.`,
-        significance: `Honoring the waterways and coastal heritage that have nourished ${cleanName} for centuries.`,
-      },
-      {
-        id: generateId(),
-        name: `${cleanName} Traditional Farmhouse Vegetarian Bowl`,
-        description: `Wholesome combination of regional heirloom grains, braised mountain greens, and house-made curd cheese.`,
-        significance: `Nutrient-rich, sustainable plant-forward heritage rooted in local agrarian wisdom.`,
-      },
-    ],
+    attractions: baseAttractions,
+    foodRecommendations: baseFoods,
     categoryDetails: {
       nature: {
         category: 'nature',
         imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=85',
         whyPopular: `${cleanName} boasts diverse natural topography, dramatic viewpoints, and tranquil green spaces that reflect the authentic geography of the area.`,
-        topPlaces: [
-          { id: generateId(), name: `${cleanName} Ridge Nature Reserve`, description: `Protected regional parkland with native trees, wildflowers, and birdwatching trails`, estimatedCost: '$5 - $15', duration: '2-3 hours' },
-          { id: generateId(), name: `${cleanName} Panoramic Summit Lookoff`, description: `Highest natural vantage point with uninterrupted views across the surrounding countryside`, estimatedCost: 'Free access', duration: '1.5 hours' },
-          { id: generateId(), name: `${cleanName} Botanical River Gardens`, description: `Quiet riverside paths showcasing indigenous shrubs, tranquil pools, and shaded benches`, estimatedCost: '$0 - $10', duration: '2 hours' },
-        ],
-        estimatedCost: '$0 - $20',
+        topPlaces: childAttractions.filter(ca => ca.category === 'nature' || ca.category === 'waterfall' || ca.category === 'lake').length > 0
+          ? childAttractions.filter(ca => ca.category === 'nature' || ca.category === 'waterfall' || ca.category === 'lake').slice(0, 3).map(ca => ({
+              id: ca.id,
+              name: ca.canonicalName,
+              description: ca.description,
+              estimatedCost: 'Free access',
+              duration: '2-3 hours',
+            }))
+          : [
+              { id: generateId(), name: `${cleanName} Nature Sanctuary & Forest Trails`, description: `Protected regional parkland with native trees, wildflowers, and birdwatching trails`, estimatedCost: `Free access - ${curr}${isIndia ? '50' : '10'}`, duration: '2-3 hours' },
+              { id: generateId(), name: `${cleanName} Panoramic Ridge & Valley Lookoff`, description: `Highest natural vantage point with uninterrupted views across the surrounding countryside`, estimatedCost: 'Free access', duration: '1.5 hours' },
+              { id: generateId(), name: `${cleanName} Botanical Riverfront Gardens`, description: `Quiet riverside paths showcasing indigenous shrubs, tranquil pools, and shaded benches`, estimatedCost: `Free access - ${curr}${isIndia ? '30' : '5'}`, duration: '2 hours' },
+            ],
+        estimatedCost: `Free access - ${curr}${isIndia ? '100' : '15'}`,
         bestTime: 'Morning or golden hour before sunset',
         recommendedDuration: '2-3 hours',
         tags: ['Scenic Views', 'Wild Flora', 'Walking Trails', 'Nature Park'],
@@ -1345,12 +1432,20 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
         category: 'food',
         imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=85',
         whyPopular: `Discover the authentic culinary traditions of ${cleanName}, characterized by locally grown ingredients, family-run eateries, and time-honored slow-cooking methods.`,
-        topPlaces: [
-          { id: generateId(), name: `${cleanName} Central Farmers & Artisan Market`, description: `Bustling open-air food hall with local cheese makers, bakers, and seasonal fruit stalls`, estimatedCost: '$10 - $25', duration: '2 hours' },
-          { id: generateId(), name: `${cleanName} Historic Heritage Trattoria`, description: `Family-owned restaurant passing down traditional recipes over multiple generations`, estimatedCost: '$25 - $50', duration: '2 hours' },
-          { id: generateId(), name: `${cleanName} Culinary Tasting & Walking Tour`, description: `Guided stroll through historical neighborhoods tasting regional specialties and sweets`, estimatedCost: '$45 - $80', duration: '3 hours' },
-        ],
-        estimatedCost: '$20 - $60 per meal',
+        topPlaces: childFoodBusinesses.length > 0
+          ? childFoodBusinesses.slice(0, 3).map(cb => ({
+              id: cb.id,
+              name: cb.canonicalName,
+              description: cb.description,
+              estimatedCost: `${curr}${isIndia ? '150 - ' + curr + '400' : '15 - ' + curr + '35'}`,
+              duration: '1.5 hours',
+            }))
+          : [
+              { id: generateId(), name: `${cleanName} Central Farmers & Artisan Market`, description: `Bustling open-air food hall with local cheese makers, bakers, and seasonal fruit stalls`, estimatedCost: `${curr}${isIndia ? '50 - ' + curr + '150' : '10 - ' + curr + '25'}`, duration: '2 hours' },
+              { id: generateId(), name: `${cleanName} Historic Heritage Eatery`, description: `Family-owned restaurant passing down traditional recipes over multiple generations`, estimatedCost: `${curr}${isIndia ? '150 - ' + curr + '350' : '25 - ' + curr + '50'}`, duration: '2 hours' },
+              { id: generateId(), name: `${cleanName} Culinary Tasting & Street Food Walk`, description: `Guided stroll through historical neighborhoods tasting regional specialties and sweets`, estimatedCost: `${curr}${isIndia ? '200 - ' + curr + '500' : '35 - ' + curr + '70'}`, duration: '2.5 hours' },
+            ],
+        estimatedCost: `${curr}${isIndia ? '100 - ' + curr + '350 per meal' : '15 - ' + curr + '45 per meal'}`,
         bestTime: 'Lunch (12:30pm) or Dinner (7:30pm)',
         recommendedDuration: '1.5 - 2.5 hours',
         tags: ['Local Terroir', 'Family Recipes', 'Fresh Markets', 'Authentic Dining'],
@@ -1359,26 +1454,40 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
         category: 'architecture',
         imageUrl: 'https://images.unsplash.com/photo-1511452885600-a3d2c9148a31?w=800&q=85',
         whyPopular: `From ancient stonework to preserved civic landmarks, ${cleanName}'s architecture tells the story of its regional builders and historical eras.`,
-        topPlaces: [
-          { id: generateId(), name: `${cleanName} Historic Stone Basilica & Belfry`, description: `Centuries-old stone landmark featuring arched cloisters and original stained glass windows`, estimatedCost: '$5 entry', duration: '1-2 hours' },
-          { id: generateId(), name: `${cleanName} Fortress & Citadel Ramparts`, description: `Historic defensive walls and stone towers offering panoramic vistas over the old quarters`, estimatedCost: '$8 - $12', duration: '2 hours' },
-          { id: generateId(), name: `${cleanName} Guildhall & Old Town Square`, description: `Preserved timbered civic square surrounded by historical guild houses and fountains`, estimatedCost: 'Free access', duration: '1.5 hours' },
-        ],
-        estimatedCost: '$5 - $15',
+        topPlaces: childAttractions.filter(ca => ca.category === 'heritage' || ca.category === 'monument' || ca.category === 'temple').length > 0
+          ? childAttractions.filter(ca => ca.category === 'heritage' || ca.category === 'monument' || ca.category === 'temple').slice(0, 3).map(ca => ({
+              id: ca.id,
+              name: ca.canonicalName,
+              description: ca.description,
+              estimatedCost: `Free access - ${curr}${isIndia ? '50' : '10'}`,
+              duration: '2 hours',
+            }))
+          : isIndia
+          ? [
+              { id: generateId(), name: `${cleanName} Historic Heritage Sanctuary & Gate`, description: `Centuries-old stone landmark featuring traditional carvings and sacred architecture`, estimatedCost: 'Free access', duration: '1-2 hours' },
+              { id: generateId(), name: `${cleanName} Fortress & Citadel Ramparts`, description: `Historic defensive walls and stone bastions offering panoramic vistas over the old quarters`, estimatedCost: `Free access - ${curr}50`, duration: '2 hours' },
+              { id: generateId(), name: `${cleanName} Preserved Old Town & Bazaar Square`, description: `Historic community market square surrounded by traditional shopfronts and shrines`, estimatedCost: 'Free access', duration: '1.5 hours' },
+            ]
+          : [
+              { id: generateId(), name: `${cleanName} Historic Heritage Landmark`, description: `Centuries-old stone landmark featuring arched cloisters and historical stonework`, estimatedCost: `${curr}5 entry`, duration: '1-2 hours' },
+              { id: generateId(), name: `${cleanName} Fortress & Citadel Ramparts`, description: `Historic defensive walls and stone towers offering panoramic vistas over the old quarters`, estimatedCost: `${curr}8 - ${curr}12`, duration: '2 hours' },
+              { id: generateId(), name: `${cleanName} Guildhall & Old Town Square`, description: `Preserved timbered civic square surrounded by historical guild houses and fountains`, estimatedCost: 'Free access', duration: '1.5 hours' },
+            ],
+        estimatedCost: `Free access - ${curr}${isIndia ? '100' : '15'}`,
         bestTime: 'Morning before midday crowds',
         recommendedDuration: '1.5 - 2 hours per site',
-        tags: ['Historic Stone', 'Belfry Towers', 'Old Town', 'Citadel'],
+        tags: ['Historic Stone', 'Heritage Ramparts', 'Old Town', 'Sanctuary'],
       },
       culture: {
         category: 'culture',
         imageUrl: 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&q=85',
         whyPopular: `Immerse yourself in the authentic customs, folk music, artisan guilds, and annual festivals that define community life in ${cleanName}.`,
         topPlaces: [
-          { id: generateId(), name: `${cleanName} Regional Folklore & Craft Guild`, description: `Interactive workshop preserving traditional textiles, pottery, and woodcrafts`, estimatedCost: '$10 - $20', duration: '2 hours' },
-          { id: generateId(), name: `${cleanName} Municipal History Museum`, description: `Carefully curated archive of historical artifacts, antique maps, and regional discoveries`, estimatedCost: '$8 entry', duration: '2 hours' },
-          { id: generateId(), name: `${cleanName} Open-Air Community Amphitheater`, description: `Host to seasonal folk concerts, theatrical plays, and traditional celebrations`, estimatedCost: 'Varies by event', duration: '2 hours' },
+          { id: generateId(), name: `${cleanName} Regional Folklore & Craft Guild`, description: `Interactive workshop preserving traditional textiles, pottery, and regional handicrafts`, estimatedCost: `Free access - ${curr}${isIndia ? '100' : '15'}`, duration: '2 hours' },
+          { id: generateId(), name: `${cleanName} Municipal History Museum`, description: `Carefully curated archive of historical artifacts, antique maps, and regional discoveries`, estimatedCost: `Free access - ${curr}${isIndia ? '50' : '10'}`, duration: '2 hours' },
+          { id: generateId(), name: `${cleanName} Traditional Community Plaza`, description: `Host to seasonal cultural programs, theatrical plays, and folk celebrations`, estimatedCost: 'Free access', duration: '2 hours' },
         ],
-        estimatedCost: '$10 - $30',
+        estimatedCost: `Free access - ${curr}${isIndia ? '150' : '20'}`,
         bestTime: 'Afternoon (2:00pm - 5:00pm)',
         recommendedDuration: '2 hours',
         tags: ['Folk Crafts', 'Museum Archive', 'Traditions', 'Heritage'],
@@ -1386,58 +1495,58 @@ export function resolveDestinationKnowledge(destinationQuery: string): Destinati
       beaches: {
         category: 'beaches',
         imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=85',
-        whyPopular: `Relax along peaceful waterfronts, natural pebble coves, or serene lakeside shores that shape ${cleanName}'s coastal identity.`,
+        whyPopular: `Relax along peaceful waterfronts, natural pebble coves, or serene lakeside shores that shape ${cleanName}'s waterfront identity.`,
         topPlaces: [
           { id: generateId(), name: `${cleanName} Main Waterfront Esplanade`, description: `Paved promenade lined with shade trees, benches, and gentle water access`, estimatedCost: 'Free', duration: '2 hours' },
-          { id: generateId(), name: `${cleanName} Secluded Pebble Cove`, description: 'Quiet shoreline framed by natural rock formations with crystal-clear waters', estimatedCost: 'Free', duration: '2-3 hours' },
-          { id: generateId(), name: `${cleanName} Harbor Marina Lookout`, description: 'Watch local fishing boats arrive with the morning catch against a mountain backdrop', estimatedCost: 'Free', duration: '1 hour' },
+          { id: generateId(), name: `${cleanName} Secluded Cove & Overlook`, description: 'Quiet shoreline framed by natural rock formations with tranquil waters', estimatedCost: 'Free', duration: '2-3 hours' },
+          { id: generateId(), name: `${cleanName} Harbor Marina Lookout`, description: 'Watch local fishing boats arrive against a scenic natural backdrop', estimatedCost: 'Free', duration: '1 hour' },
         ],
-        estimatedCost: 'Free - $10',
-        bestTime: 'Midday for swimming or late afternoon for sunset walks',
+        estimatedCost: 'Free access',
+        bestTime: 'Midday or late afternoon for sunset walks',
         recommendedDuration: '2-3 hours',
-        tags: ['Waterfront', 'Pebble Shore', 'Marina Promenade', 'Scenic Water'],
+        tags: ['Waterfront', 'Ghats', 'Marina Promenade', 'Scenic Water'],
       },
       cafes: {
         category: 'cafes',
         imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=85',
-        whyPopular: `Experience the relaxed cafe culture of ${cleanName}, with artisan coffee roasters, fresh pastries, and courtyard seating.`,
+        whyPopular: `Experience the relaxed tea and cafe culture of ${cleanName}, with artisan refreshments, sweet bakes, and open-air seating.`,
         topPlaces: [
-          { id: generateId(), name: `${cleanName} Artisan Roastery & Bakery`, description: `Specialty single-origin coffees paired with freshly baked morning pastries and sourdough`, estimatedCost: '$4 - $10', duration: '1 hour' },
-          { id: generateId(), name: `${cleanName} Historic Courtyard Salon`, description: `Quiet shaded stone courtyard serving regional herbal teas and homemade cakes`, estimatedCost: '$5 - $12', duration: '1.5 hours' },
-          { id: generateId(), name: `${cleanName} Rooftop Espresso Belvedere`, description: 'Panoramic outdoor terrace overlooking the old city rooftops with espresso and juices', estimatedCost: '$6 - $14', duration: '1 hour' },
+          { id: generateId(), name: `${cleanName} Artisan Tea & Bakery Stop`, description: `Specialty teas and filter coffees paired with freshly baked morning pastries and treats`, estimatedCost: `${curr}${isIndia ? '30 - ' + curr + '80' : '4 - ' + curr + '10'}`, duration: '1 hour' },
+          { id: generateId(), name: `${cleanName} Historic Courtyard Salon`, description: `Quiet shaded stone courtyard serving regional herbal infusions and homemade sweets`, estimatedCost: `${curr}${isIndia ? '50 - ' + curr + '120' : '5 - ' + curr + '12'}`, duration: '1.5 hours' },
+          { id: generateId(), name: `${cleanName} Rooftop Sunset Terrace`, description: 'Panoramic outdoor terrace overlooking the old city rooftops with refreshments', estimatedCost: `${curr}${isIndia ? '80 - ' + curr + '200' : '6 - ' + curr + '14'}`, duration: '1 hour' },
         ],
-        estimatedCost: '$5 - $15',
-        bestTime: 'Morning (8:30am - 10:30am) or mid-afternoon',
+        estimatedCost: `${curr}${isIndia ? '40 - ' + curr + '120' : '5 - ' + curr + '15'}`,
+        bestTime: 'Morning or mid-afternoon',
         recommendedDuration: '1 hour',
-        tags: ['Artisan Coffee', 'Bakeshop', 'Courtyard Seating', 'Herbal Teas'],
+        tags: ['Artisan Tea', 'Bakeshop', 'Courtyard Seating', 'Herbal Refreshments'],
       },
       adventure: {
         category: 'adventure',
         imageUrl: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800&q=85',
-        whyPopular: `Get active with scenic hiking trails, mountain biking, and outdoor excursions through ${cleanName}'s rugged countryside.`,
+        whyPopular: `Get active with scenic hiking trails, mountain biking, and outdoor excursions through ${cleanName}'s countryside.`,
         topPlaces: [
-          { id: generateId(), name: `${cleanName} Highland Circuit Trail`, description: 'Scenic 10km loop through alpine meadows, rocky passes, and mountain ridges', estimatedCost: 'Free', duration: '4 hours' },
-          { id: generateId(), name: `${cleanName} River Kayak & Paddle Excursion`, description: 'Guided paddling trip down the gentle rapids and limestone canyons of the river', estimatedCost: '$35 - $60', duration: '3 hours' },
-          { id: generateId(), name: `${cleanName} Scenic Mountain Road Tour`, description: 'Winding scenic road through mountain villages and scenic overlooks', estimatedCost: 'Self-drive', duration: '3-4 hours' },
+          { id: generateId(), name: `${cleanName} Highland Circuit Trail`, description: 'Scenic circuit trail passing through rocky passes, flora, and mountain ridges', estimatedCost: 'Free', duration: '4 hours' },
+          { id: generateId(), name: `${cleanName} River Kayak & Boating Excursion`, description: 'Guided boating trip down the gentle waters and scenic canyons of the river', estimatedCost: `${curr}${isIndia ? '150 - ' + curr + '400' : '30 - ' + curr + '60'}`, duration: '2.5 hours' },
+          { id: generateId(), name: `${cleanName} Scenic Foothills Route`, description: 'Winding scenic road through rural hamlets and scenic valley overlooks', estimatedCost: 'Self-drive', duration: '3-4 hours' },
         ],
-        estimatedCost: '$20 - $70',
+        estimatedCost: `Free access - ${curr}${isIndia ? '400' : '50'}`,
         bestTime: 'Morning for cooler temperatures and stable weather',
         recommendedDuration: '3-5 hours',
-        tags: ['Hiking Loop', 'River Kayak', 'Scenic Drive', 'Active Outing'],
+        tags: ['Hiking Loop', 'River Boating', 'Scenic Drive', 'Active Outing'],
       },
       nightlife: {
         category: 'nightlife',
         imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=85',
-        whyPopular: `As twilight falls over ${cleanName}, enjoy lantern-lit wine bars, live acoustic folk performances, and rooftop sunset verandas.`,
+        whyPopular: `As twilight falls over ${cleanName}, enjoy lantern-lit bazaar lanes, live acoustic folk performances, and rooftop sunset verandas.`,
         topPlaces: [
-          { id: generateId(), name: `${cleanName} Old Town Wine & Tapas Cellar`, description: 'Cozy historic vaulted cellar serving regional vintages and artisan cheese boards', estimatedCost: '$20 - $45', duration: '2 hours' },
-          { id: generateId(), name: `${cleanName} Open-Air Piazza Sunset Lounge`, description: 'Vibrant outdoor terrace on the main square with craft cocktails and live acoustic music', estimatedCost: '$15 - $35', duration: '2-3 hours' },
+          { id: generateId(), name: `${cleanName} Night Market & Evening Bazaar`, description: 'Atmospheric night bazaar offering street savories, handicrafts, and bustling energy', estimatedCost: `${curr}${isIndia ? '50 - ' + curr + '200' : '15 - ' + curr + '35'}`, duration: '2 hours' },
+          { id: generateId(), name: `${cleanName} Open-Air Sunset Veranda`, description: 'Relaxing outdoor terrace with panoramic skyline views, regional juices, and music', estimatedCost: `${curr}${isIndia ? '100 - ' + curr + '300' : '15 - ' + curr + '35'}`, duration: '2 hours' },
           { id: generateId(), name: `${cleanName} Night Observatory & Stargazing Hill`, description: 'Dark-sky hillside lookout away from city lights offering crystal-clear stargazing', estimatedCost: 'Free', duration: '1.5 hours' },
         ],
-        estimatedCost: '$15 - $50',
-        bestTime: '8:00 PM onwards',
+        estimatedCost: `${curr}${isIndia ? '100 - ' + curr + '350' : '15 - ' + curr + '45'}`,
+        bestTime: '7:30 PM onwards',
         recommendedDuration: '2-3 hours',
-        tags: ['Wine Cellar', 'Acoustic Lounge', 'Sunset Piazza', 'Stargazing'],
+        tags: ['Night Bazaar', 'Acoustic Lounge', 'Sunset Terrace', 'Stargazing'],
       },
     },
   };
